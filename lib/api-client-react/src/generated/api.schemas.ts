@@ -8,3 +8,215 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface GeminiConversation {
+  id: number;
+  title: string;
+  createdAt: string;
+}
+
+export interface GeminiMessage {
+  id: number;
+  conversationId: number;
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface CreateGeminiConversationBody {
+  title: string;
+}
+
+export interface SendGeminiMessageBody {
+  content: string;
+}
+
+export interface GeminiConversationWithMessages {
+  id: number;
+  title: string;
+  createdAt: string;
+  messages: GeminiMessage[];
+}
+
+export interface GenerateGeminiImageBody {
+  prompt: string;
+}
+
+export interface GenerateGeminiImageResponse {
+  b64_json: string;
+  mimeType: string;
+}
+
+export interface GeminiError {
+  error: string;
+}
+
+export interface Memory {
+  id: number;
+  owner: string;
+  type: string;
+  content: string;
+  importanceScore: number;
+  category?: string;
+  createdAt: string;
+}
+
+export type CreateMemoryBodyOwner =
+  (typeof CreateMemoryBodyOwner)[keyof typeof CreateMemoryBodyOwner];
+
+export const CreateMemoryBodyOwner = {
+  agent: "agent",
+  user: "user",
+} as const;
+
+export type CreateMemoryBodyType =
+  (typeof CreateMemoryBodyType)[keyof typeof CreateMemoryBodyType];
+
+export const CreateMemoryBodyType = {
+  preference: "preference",
+  fact: "fact",
+  workflow: "workflow",
+  lesson: "lesson",
+} as const;
+
+export interface CreateMemoryBody {
+  owner: CreateMemoryBodyOwner;
+  type: CreateMemoryBodyType;
+  content: string;
+  importanceScore: number;
+  category?: string;
+}
+
+export interface UpdateMemoryBody {
+  content?: string;
+  importanceScore?: number;
+  category?: string;
+}
+
+export interface Document {
+  id: number;
+  title: string;
+  source: string;
+  url?: string;
+  canonicalCategory?: string;
+  content: string;
+  createdAt: string;
+}
+
+export type CreateDocumentBodySource =
+  (typeof CreateDocumentBodySource)[keyof typeof CreateDocumentBodySource];
+
+export const CreateDocumentBodySource = {
+  local: "local",
+  web: "web",
+  web_verified: "web_verified",
+} as const;
+
+export interface CreateDocumentBody {
+  title: string;
+  source: CreateDocumentBodySource;
+  url?: string;
+  canonicalCategory?: string;
+  content: string;
+}
+
+export interface AgentEvent {
+  id: number;
+  eventType: string;
+  contextId?: string;
+  payload?: string;
+  status: string;
+  createdAt: string;
+}
+
+export type DashboardStatsMemoriesByType = { [key: string]: number };
+
+export type DashboardStatsEventsByStatus = { [key: string]: number };
+
+export interface DashboardStats {
+  totalConversations: number;
+  totalMessages: number;
+  totalMemories: number;
+  totalDocuments: number;
+  recentErrors: number;
+  memoriesByType: DashboardStatsMemoriesByType;
+  eventsByStatus: DashboardStatsEventsByStatus;
+}
+
+export type ToolHealthStatus =
+  (typeof ToolHealthStatus)[keyof typeof ToolHealthStatus];
+
+export const ToolHealthStatus = {
+  healthy: "healthy",
+  degraded: "degraded",
+  disabled: "disabled",
+} as const;
+
+export interface ToolHealth {
+  toolName: string;
+  successRate: number;
+  recentFailures: number;
+  status: ToolHealthStatus;
+  lastCheckedAt?: string;
+}
+
+export interface ActivityItem {
+  id: number;
+  type: string;
+  description: string;
+  status: string;
+  createdAt: string;
+}
+
+export type ListMemoriesParams = {
+  type?: ListMemoriesType;
+  owner?: ListMemoriesOwner;
+  limit?: number;
+};
+
+export type ListMemoriesType =
+  (typeof ListMemoriesType)[keyof typeof ListMemoriesType];
+
+export const ListMemoriesType = {
+  preference: "preference",
+  fact: "fact",
+  workflow: "workflow",
+  lesson: "lesson",
+} as const;
+
+export type ListMemoriesOwner =
+  (typeof ListMemoriesOwner)[keyof typeof ListMemoriesOwner];
+
+export const ListMemoriesOwner = {
+  agent: "agent",
+  user: "user",
+} as const;
+
+export type ListDocumentsParams = {
+  source?: ListDocumentsSource;
+  limit?: number;
+};
+
+export type ListDocumentsSource =
+  (typeof ListDocumentsSource)[keyof typeof ListDocumentsSource];
+
+export const ListDocumentsSource = {
+  local: "local",
+  web: "web",
+  web_verified: "web_verified",
+} as const;
+
+export type ListAgentEventsParams = {
+  status?: ListAgentEventsStatus;
+  limit?: number;
+};
+
+export type ListAgentEventsStatus =
+  (typeof ListAgentEventsStatus)[keyof typeof ListAgentEventsStatus];
+
+export const ListAgentEventsStatus = {
+  success: "success",
+  error: "error",
+  retrying: "retrying",
+  degraded: "degraded",
+} as const;
