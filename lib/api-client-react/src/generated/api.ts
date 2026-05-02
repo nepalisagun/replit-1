@@ -35,6 +35,8 @@ import type {
   ListDocumentsParams,
   ListMemoriesParams,
   Memory,
+  ReflectionResult,
+  RunReflectionBody,
   SendGeminiMessageBody,
   ToolHealth,
   UpdateMemoryBody,
@@ -1743,3 +1745,89 @@ export function useGetRecentActivity<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Run a reflection job over recent conversations to extract memories
+ */
+export const getRunReflectionUrl = () => {
+  return `/api/reflect`;
+};
+
+export const runReflection = async (
+  runReflectionBody?: RunReflectionBody,
+  options?: RequestInit,
+): Promise<ReflectionResult> => {
+  return customFetch<ReflectionResult>(getRunReflectionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(runReflectionBody),
+  });
+};
+
+export const getRunReflectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runReflection>>,
+    TError,
+    { data: BodyType<RunReflectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof runReflection>>,
+  TError,
+  { data: BodyType<RunReflectionBody> },
+  TContext
+> => {
+  const mutationKey = ["runReflection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof runReflection>>,
+    { data: BodyType<RunReflectionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return runReflection(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RunReflectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof runReflection>>
+>;
+export type RunReflectionMutationBody = BodyType<RunReflectionBody>;
+export type RunReflectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Run a reflection job over recent conversations to extract memories
+ */
+export const useRunReflection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runReflection>>,
+    TError,
+    { data: BodyType<RunReflectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof runReflection>>,
+  TError,
+  { data: BodyType<RunReflectionBody> },
+  TContext
+> => {
+  return useMutation(getRunReflectionMutationOptions(options));
+};

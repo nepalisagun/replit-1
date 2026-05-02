@@ -272,12 +272,43 @@ export const GetToolHealthResponse = zod.array(GetToolHealthResponseItem);
  * @summary Get recent agent activity timeline
  */
 export const GetRecentActivityResponseItem = zod.object({
-  id: zod.number(),
-  type: zod.string(),
-  description: zod.string(),
-  status: zod.string(),
-  createdAt: zod.coerce.date(),
+  id: zod.number().optional(),
+  type: zod.string().optional(),
+  description: zod.string().optional(),
+  status: zod.string().optional(),
+  createdAt: zod.coerce.date().optional(),
 });
 export const GetRecentActivityResponse = zod.array(
   GetRecentActivityResponseItem,
 );
+
+/**
+ * @summary Run a reflection job over recent conversations to extract memories
+ */
+export const RunReflectionBody = zod.object({
+  lookbackHours: zod
+    .number()
+    .optional()
+    .describe("How many hours of messages to look back on (default 24)"),
+  maxMessages: zod
+    .number()
+    .optional()
+    .describe("Maximum messages to process (default 100)"),
+});
+
+export const RunReflectionResponse = zod.object({
+  messagesAnalyzed: zod.number(),
+  memoriesCreated: zod.number(),
+  memories: zod.array(
+    zod.object({
+      id: zod.number(),
+      owner: zod.string(),
+      type: zod.string(),
+      content: zod.string(),
+      importanceScore: zod.number(),
+      category: zod.string().optional(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  summary: zod.string(),
+});

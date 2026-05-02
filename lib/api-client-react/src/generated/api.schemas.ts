@@ -161,11 +161,35 @@ export interface ToolHealth {
 }
 
 export interface ActivityItem {
+  id?: number;
+  type?: string;
+  description?: string;
+  status?: string;
+  createdAt?: string;
+}
+
+export interface RunReflectionBody {
+  /** How many hours of messages to look back on (default 24) */
+  lookbackHours?: number;
+  /** Maximum messages to process (default 100) */
+  maxMessages?: number;
+}
+
+export interface ReflectionMemory {
   id: number;
+  owner: string;
   type: string;
-  description: string;
-  status: string;
+  content: string;
+  importanceScore: number;
+  category?: string;
   createdAt: string;
+}
+
+export interface ReflectionResult {
+  messagesAnalyzed: number;
+  memoriesCreated: number;
+  memories: ReflectionMemory[];
+  summary: string;
 }
 
 export type ListMemoriesParams = {

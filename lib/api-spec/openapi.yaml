@@ -20,6 +20,8 @@ tags:
     description: Agent event logs
   - name: stats
     description: Agent statistics and dashboard
+  - name: reflect
+    description: Reflection job endpoints
 paths:
   /healthz:
     get:
@@ -409,6 +411,25 @@ paths:
                 items:
                   $ref: "#/components/schemas/ActivityItem"
 
+  /reflect:
+    post:
+      operationId: runReflection
+      tags: [reflect]
+      summary: Run a reflection job over recent conversations to extract memories
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunReflectionBody"
+      responses:
+        "200":
+          description: Reflection result with newly created memories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReflectionResult"
+
 components:
   schemas:
     HealthStatus:
@@ -706,9 +727,58 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    RunReflectionBody:
+      type: object
+      properties:
+        lookbackHours:
+          type: integer
+          description: How many hours of messages to look back on (default 24)
+        maxMessages:
+          type: integer
+          description: Maximum messages to process (default 100)
+
+    ReflectionMemory:
+      type: object
+      properties:
+        id:
+          type: integer
+        owner:
+          type: string
+        type:
+          type: string
+        content:
+          type: string
+        importanceScore:
+          type: integer
+        category:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
       required:
         - id
+        - owner
         - type
-        - description
-        - status
+        - content
+        - importanceScore
         - createdAt
+
+    ReflectionResult:
+      type: object
+      properties:
+        messagesAnalyzed:
+          type: integer
+        memoriesCreated:
+          type: integer
+        memories:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReflectionMemory"
+        summary:
+          type: string
+      required:
+        - messagesAnalyzed
+        - memoriesCreated
+        - memories
+        - summary
