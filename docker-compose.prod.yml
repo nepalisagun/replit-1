@@ -5,13 +5,33 @@
 #
 # What this file adds on top of docker-compose.yml:
 #   • Pulls pre-built images from ghcr.io instead of building locally
-#   • Watchtower — polls ghcr.io every 5 minutes and hot-swaps containers
-#     when a new image is published (zero-touch continuous deployment)
+#   • Watchtower — zero-touch continuous deployment from ghcr.io
+#   • Flexible update schedule: cron window OR interval polling (set in .env)
 #   • Slack / Discord / webhook notifications on every update or failure
 #   • Resource limits and restart policies tuned for production
 #   • Structured JSON logging for both services
 #
-# Notification quick-start (pick one, set in .env):
+# ── Update schedule ───────────────────────────────────────────────────────────
+#
+# Two modes — pick one in .env (cron wins if both are set):
+#
+#   MODE A — Cron window  (deploy only during a specific time of day)
+#     WATCHTOWER_SCHEDULE="0 0 2 * * *"      # every day at 02:00 (UTC)
+#     WATCHTOWER_SCHEDULE="0 0 2-4 * * *"    # daily between 02:00–04:00
+#     WATCHTOWER_SCHEDULE="0 0 3 * * 1-5"    # weekdays at 03:00
+#     WATCHTOWER_SCHEDULE="0 0 2 * * 0"      # Sundays at 02:00
+#   Format: "SECONDS MINUTES HOURS DOM MONTH DOW"  (6-field, Watchtower cron)
+#
+#   MODE B — Interval polling  (check every N seconds, default 300 = 5 min)
+#     WATCHTOWER_POLL_INTERVAL=300            # every 5 minutes (default)
+#     WATCHTOWER_POLL_INTERVAL=3600           # every hour
+#
+#   Set WATCHTOWER_TIMEZONE to make cron hours match your local clock:
+#     WATCHTOWER_TIMEZONE=America/New_York
+#     WATCHTOWER_TIMEZONE=Europe/London
+#     WATCHTOWER_TIMEZONE=Asia/Kathmandu
+#
+# ── Notification quick-start ──────────────────────────────────────────────────
 #
 #   Slack incoming webhook:
 #     WATCHTOWER_NOTIFICATION_URL=generic+https://hooks.slack.com/services/T.../B.../xxx
@@ -19,7 +39,7 @@
 #   Discord webhook:
 #     WATCHTOWER_NOTIFICATION_URL=discord://TOKEN@CHANNEL_ID
 #
-#   Any HTTP endpoint (e.g. n8n, Zapier, custom):
+#   Any HTTP endpoint (n8n, Zapier, custom):
 #     WATCHTOWER_NOTIFICATION_URL=generic+https://your-server.com/webhook
 #
 #   Multiple destinations (space-separated):
@@ -97,12 +117,26 @@ services:
       # ── Watching ───────────────────────────────────────────────────────────
       # Only containers with the watchtower.enable=true label are monitored.
       WATCHTOWER_LABEL_ENABLE: "true"
-      # Poll ghcr.io every 5 minutes.
-      WATCHTOWER_POLL_INTERVAL: "300"
+
+      # Schedule mode (cron): set WATCHTOWER_SCHEDULE in .env to activate.
+      # When set, this takes priority and WATCHTOWER_POLL_INTERVAL is ignored.
+      # Example: "0 0 2 * * *" = every day at 02:00 in WATCHTOWER_TIMEZONE.
+      # Leave empty (default) to fall back to interval polling below.
+      WATCHTOWER_SCHEDULE: ${WATCHTOWER_SCHEDULE:-}
+
+      # Interval mode (polling): how often to check for new images, in seconds.
+      # Only used when WATCHTOWER_SCHEDULE is not set.
+      # Default: 300 (5 minutes). Set to 3600 for hourly, 86400 for daily.
+      WATCHTOWER_POLL_INTERVAL: ${WATCHTOWER_POLL_INTERVAL:-300}
+
+      # Timezone for cron expressions. Must be a valid tz database name.
+      # See https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+      # Default: UTC. Example: America/New_York, Europe/London, Asia/Kathmandu
+      TZ: ${WATCHTOWER_TIMEZONE:-UTC}
+
       # Remove superseded images to reclaim disk space.
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_LOG_LEVEL: info
-      TZ: UTC
 
       # ── Notifications ──────────────────────────────────────────────────────
       # shoutrrr-formatted URL(s). Leave blank/unset to silence all alerts.
