@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Send, Plus, Bot, User, Loader2, Trash2, BrainCircuit,
   FileText, Globe, Pin, PinOff, Archive, ArchiveRestore, ChevronDown, ChevronRight,
-  Pencil, Check, X, Search, MessageSquare, Download, ThumbsUp, ThumbsDown
+  Pencil, Check, X, Search, MessageSquare, Download, ThumbsUp, ThumbsDown, Copy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -264,6 +264,15 @@ export default function ChatPage() {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: getListConversationReactionsQueryKey(activeId as number) }),
       });
     }
+  }
+
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  function handleCopy(messageId: number, content: string) {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedId(messageId);
+      setTimeout(() => setCopiedId((prev) => (prev === messageId ? null : prev)), 1500);
+    });
   }
 
   useEffect(() => {
@@ -595,6 +604,19 @@ export default function ChatPage() {
                         </div>
                         {isAssistant && m.id > 0 && (
                           <div className="flex items-center gap-1 pl-12 mb-3">
+                            <button
+                              onClick={() => handleCopy(m.id, m.content)}
+                              title="Copy message"
+                              className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs transition-colors ${
+                                copiedId === m.id
+                                  ? "text-primary bg-primary/15"
+                                  : "text-muted-foreground/40 hover:text-foreground hover:bg-muted"
+                              }`}
+                            >
+                              {copiedId === m.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                              {copiedId === m.id && <span>Copied</span>}
+                            </button>
+                            <span className="w-px h-3 bg-border mx-0.5" />
                             <button
                               onClick={() => handleReact(m.id, "helpful")}
                               title="Helpful"
