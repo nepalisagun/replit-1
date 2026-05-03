@@ -1270,6 +1270,174 @@ export const useSendGeminiMessage = <
 };
 
 /**
+ * @summary Regenerate the last assistant response (SSE stream)
+ */
+export const getRegenerateGeminiResponseUrl = (id: number) => {
+  return `/api/gemini/conversations/${id}/regenerate`;
+};
+
+export const regenerateGeminiResponse = async (
+  id: number,
+  options?: RequestInit,
+): Promise<unknown> => {
+  return customFetch<unknown>(getRegenerateGeminiResponseUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRegenerateGeminiResponseMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof regenerateGeminiResponse>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof regenerateGeminiResponse>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["regenerateGeminiResponse"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof regenerateGeminiResponse>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return regenerateGeminiResponse(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegenerateGeminiResponseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof regenerateGeminiResponse>>
+>;
+
+export type RegenerateGeminiResponseMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Regenerate the last assistant response (SSE stream)
+ */
+export const useRegenerateGeminiResponse = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof regenerateGeminiResponse>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof regenerateGeminiResponse>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getRegenerateGeminiResponseMutationOptions(options));
+};
+
+/**
+ * @summary Delete a specific message by ID
+ */
+export const getDeleteGeminiMessageUrl = (messageId: number) => {
+  return `/api/gemini/messages/${messageId}`;
+};
+
+export const deleteGeminiMessage = async (
+  messageId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteGeminiMessageUrl(messageId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteGeminiMessageMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteGeminiMessage>>,
+    TError,
+    { messageId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteGeminiMessage>>,
+  TError,
+  { messageId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteGeminiMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteGeminiMessage>>,
+    { messageId: number }
+  > = (props) => {
+    const { messageId } = props ?? {};
+
+    return deleteGeminiMessage(messageId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteGeminiMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteGeminiMessage>>
+>;
+
+export type DeleteGeminiMessageMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a specific message by ID
+ */
+export const useDeleteGeminiMessage = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteGeminiMessage>>,
+    TError,
+    { messageId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteGeminiMessage>>,
+  TError,
+  { messageId: number },
+  TContext
+> => {
+  return useMutation(getDeleteGeminiMessageMutationOptions(options));
+};
+
+/**
  * @summary Generate an image from a text prompt
  */
 export const getGenerateGeminiImageUrl = () => {

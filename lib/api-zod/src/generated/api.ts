@@ -208,6 +208,20 @@ export const SendGeminiMessageBody = zod.object({
 });
 
 /**
+ * @summary Regenerate the last assistant response (SSE stream)
+ */
+export const RegenerateGeminiResponseParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Delete a specific message by ID
+ */
+export const DeleteGeminiMessageParams = zod.object({
+  messageId: zod.coerce.number(),
+});
+
+/**
  * @summary Generate an image from a text prompt
  */
 export const GenerateGeminiImageBody = zod.object({

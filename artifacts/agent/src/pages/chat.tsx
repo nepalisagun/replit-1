@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Send, Plus, Bot, User, Loader2, Trash2, BrainCircuit,
   FileText, Globe, Pin, PinOff, Archive, ArchiveRestore, ChevronDown, ChevronRight,
-  Pencil, Check, X, Search, MessageSquare, Download, ThumbsUp, ThumbsDown, Copy
+  Pencil, Check, X, Search, MessageSquare, Download, ThumbsUp, ThumbsDown, Copy, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -312,6 +312,62 @@ export default function ChatPage() {
     });
   }
 
+  const handleRegenerate = async () => {
+    if (!activeId || isStreaming) return;
+    const typedMsgs = messages as MsgRow[];
+    const lastAssistant = [...typedMsgs].reverse().find((m) => m.role === "assistant" || m.role === "model");
+    if (!lastAssistant) return;
+
+    setIsStreaming(true);
+    setStreamBuffer("");
+    setPendingRagMeta(null);
+
+    const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+    try {
+      await fetch(`${BASE}/api/gemini/messages/${lastAssistant.id}`, { method: "DELETE" });
+      queryClient.setQueryData(
+        getListGeminiMessagesQueryKey(activeId),
+        (old: MsgRow[] | undefined) => old?.filter((m) => m.id !== lastAssistant.id) ?? old
+      );
+    } catch {
+      setIsStreaming(false);
+      return;
+    }
+
+    let capturedRagMeta: RagMeta | null = null;
+    try {
+      const response = await fetch(`${BASE}/api/gemini/conversations/${activeId}/regenerate`, { method: "POST" });
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const json = JSON.parse(line.slice(6));
+            if (json.done) break;
+            if (json.ragContext) { capturedRagMeta = json.ragContext as RagMeta; setPendingRagMeta(capturedRagMeta); }
+            if (json.content) setStreamBuffer((prev) => prev + json.content);
+          }
+        }
+      }
+    } catch (e) { console.error(e); }
+    finally {
+      setIsStreaming(false);
+      setStreamBuffer("");
+      await queryClient.invalidateQueries({ queryKey: getListGeminiMessagesQueryKey(activeId) });
+      await queryClient.invalidateQueries({ queryKey: getGetGeminiConversationQueryKey(activeId) });
+      if (capturedRagMeta) {
+        setRagMetaMap((prev) => ({ ...prev, [(messages as MsgRow[]).length - 1]: capturedRagMeta! }));
+      }
+      setPendingRagMeta(null);
+    }
+  };
+
   useEffect(() => {
     if (typedConvos.length && !activeId) {
       const first = pinned[0] ?? regular[0];
@@ -423,6 +479,7 @@ export default function ChatPage() {
     .map((m, i) => ({ role: m.role, i }))
     .filter((m) => m.role === "assistant" || m.role === "model")
     .map((m) => m.i);
+  const lastAssistantIdx = assistantIndices.length > 0 ? assistantIndices[assistantIndices.length - 1] : -1;
 
   function renderConvoItem(c: Convo) {
     return (
@@ -659,6 +716,19 @@ export default function ChatPage() {
                         </div>
                         {isAssistant && m.id > 0 && (
                           <div className="flex items-center gap-1 pl-12 mb-3">
+                            {idx === lastAssistantIdx && !isStreaming && (
+                              <>
+                                <button
+                                  onClick={handleRegenerate}
+                                  title="Regenerate response"
+                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs transition-colors text-muted-foreground/40 hover:text-primary hover:bg-primary/10"
+                                >
+                                  <RefreshCw className="w-3 h-3" />
+                                  <span>Regenerate</span>
+                                </button>
+                                <span className="w-px h-3 bg-border mx-0.5" />
+                              </>
+                            )}
                             <button
                               onClick={() => handleCopy(m.id, m.content)}
                               title="Copy message"

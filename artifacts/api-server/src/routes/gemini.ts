@@ -404,6 +404,103 @@ router.post("/gemini/conversations/:id/messages", async (req, res) => {
   res.end();
 });
 
+router.delete("/gemini/messages/:messageId", async (req, res) => {
+  const id = parseInt(req.params.messageId, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const deleted = await db.delete(messages).where(eq(messages.id, id)).returning();
+  if (!deleted.length) { res.status(404).json({ error: "Message not found" }); return; }
+  res.status(204).send();
+});
+
+router.post("/gemini/conversations/:id/regenerate", async (req, res) => {
+  const conversationId = parseInt(req.params.id, 10);
+  if (isNaN(conversationId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [convo] = await db.select().from(conversations).where(eq(conversations.id, conversationId));
+  if (!convo) { res.status(404).json({ error: "Conversation not found" }); return; }
+
+  const chatHistory = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, conversationId))
+    .orderBy(messages.createdAt);
+
+  if (chatHistory.length === 0) { res.status(400).json({ error: "No messages to regenerate from" }); return; }
+
+  const lastUserMsg = [...chatHistory].reverse().find((m) => m.role === "user");
+  const ragQuery = lastUserMsg?.content ?? "";
+
+  let ragContext: Awaited<ReturnType<typeof retrieveContext>> = [];
+  try {
+    if (ragQuery) ragContext = await retrieveContext(ragQuery, { limit: 5, threshold: 0.45 });
+  } catch (err) {
+    req.log.warn({ err }, "RAG retrieval failed — proceeding without context");
+  }
+
+  const settingsRows = await db.select().from(agentSettings).where(eq(agentSettings.id, 1));
+  const persona = settingsRows[0]?.persona ??
+    "You are Nexus, a highly capable personal AI agent. You are precise, thoughtful, and proactive.";
+
+  let systemPrompt = persona;
+  if (ragContext.length > 0) {
+    const memCtx = ragContext.filter((r) => r.source === "memory");
+    const docCtx = ragContext.filter((r) => r.source === "document");
+    const webCtx = ragContext.filter((r) => r.source === "web_source");
+    const sections: string[] = [];
+    if (memCtx.length > 0) sections.push(`RELEVANT MEMORIES:\n${memCtx.map((m) => `- [${m.metadata.type}] ${m.content}`).join("\n")}`);
+    if (docCtx.length > 0) sections.push(`RELEVANT KNOWLEDGE BASE DOCUMENTS:\n${docCtx.map((d) => `- ${d.title}: ${d.content.slice(0, 400)}`).join("\n")}`);
+    if (webCtx.length > 0) sections.push(`RELEVANT WEB SOURCES:\n${webCtx.map((w) => `- ${w.title}: ${w.content.slice(0, 300)}`).join("\n")}`);
+    if (sections.length > 0) systemPrompt += `\n\nUse the following context from your knowledge base when relevant:\n\n${sections.join("\n\n")}`;
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  if (ragContext.length > 0) {
+    res.write(`data: ${JSON.stringify({ ragContext: {
+      memoriesUsed: ragContext.filter((r) => r.source === "memory").length,
+      documentsUsed: ragContext.filter((r) => r.source === "document").length,
+      webSourcesUsed: ragContext.filter((r) => r.source === "web_source").length,
+      total: ragContext.length,
+    }})}\n\n`);
+  }
+
+  let fullResponse = "";
+  try {
+    const geminiContents = [
+      { role: "user" as const, parts: [{ text: systemPrompt }] },
+      { role: "model" as const, parts: [{ text: "Understood. I will use the provided context to assist you accurately." }] },
+      ...chatHistory.map((m) => ({
+        role: m.role === "assistant" ? ("model" as const) : ("user" as const),
+        parts: [{ text: m.content }],
+      })),
+    ];
+
+    const stream = await ai.models.generateContentStream({
+      model: "gemini-2.5-flash",
+      contents: geminiContents,
+      config: { maxOutputTokens: 8192 },
+    });
+
+    for await (const chunk of stream) {
+      const text = chunk.text;
+      if (text) {
+        fullResponse += text;
+        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+      }
+    }
+
+    await db.insert(messages).values({ conversationId, role: "assistant", content: fullResponse });
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+  } catch (err) {
+    req.log.error({ err }, "Gemini regenerate stream error");
+    res.write(`data: ${JSON.stringify({ error: "AI generation failed" })}\n\n`);
+  }
+
+  res.end();
+});
+
 router.post("/gemini/generate-image", async (req, res) => {
   const parsed = GenerateGeminiImageBody.safeParse(req.body);
   if (!parsed.success) {

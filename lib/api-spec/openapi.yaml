@@ -311,6 +311,40 @@ paths:
           content:
             text/event-stream: {}
 
+  /gemini/conversations/{id}/regenerate:
+    post:
+      operationId: regenerateGeminiResponse
+      tags: [gemini]
+      summary: Regenerate the last assistant response (SSE stream)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: SSE stream of regenerated assistant response
+          content:
+            text/event-stream: {}
+
+  /gemini/messages/{messageId}:
+    delete:
+      operationId: deleteGeminiMessage
+      tags: [gemini]
+      summary: Delete a specific message by ID
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Message deleted
+        "404":
+          description: Message not found
+
   /gemini/generate-image:
     post:
       operationId: generateGeminiImage
