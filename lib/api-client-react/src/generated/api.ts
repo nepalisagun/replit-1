@@ -38,8 +38,10 @@ import type {
   ListMemoriesParams,
   ListWebSourcesParams,
   Memory,
+  MessageReaction,
   RagSearchBody,
   RagSearchResponse,
+  ReactToMessageBody,
   ReflectionResult,
   RenameGeminiConversationBody,
   RunReflectionBody,
@@ -831,6 +833,266 @@ export const useDeleteGeminiConversation = <
 > => {
   return useMutation(getDeleteGeminiConversationMutationOptions(options));
 };
+
+/**
+ * @summary Set or update a reaction on a message
+ */
+export const getReactToMessageUrl = (messageId: number) => {
+  return `/api/gemini/messages/${messageId}/react`;
+};
+
+export const reactToMessage = async (
+  messageId: number,
+  reactToMessageBody: ReactToMessageBody,
+  options?: RequestInit,
+): Promise<MessageReaction> => {
+  return customFetch<MessageReaction>(getReactToMessageUrl(messageId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reactToMessageBody),
+  });
+};
+
+export const getReactToMessageMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reactToMessage>>,
+    TError,
+    { messageId: number; data: BodyType<ReactToMessageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reactToMessage>>,
+  TError,
+  { messageId: number; data: BodyType<ReactToMessageBody> },
+  TContext
+> => {
+  const mutationKey = ["reactToMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reactToMessage>>,
+    { messageId: number; data: BodyType<ReactToMessageBody> }
+  > = (props) => {
+    const { messageId, data } = props ?? {};
+
+    return reactToMessage(messageId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReactToMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reactToMessage>>
+>;
+export type ReactToMessageMutationBody = BodyType<ReactToMessageBody>;
+export type ReactToMessageMutationError = ErrorType<void>;
+
+/**
+ * @summary Set or update a reaction on a message
+ */
+export const useReactToMessage = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reactToMessage>>,
+    TError,
+    { messageId: number; data: BodyType<ReactToMessageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reactToMessage>>,
+  TError,
+  { messageId: number; data: BodyType<ReactToMessageBody> },
+  TContext
+> => {
+  return useMutation(getReactToMessageMutationOptions(options));
+};
+
+/**
+ * @summary Remove a reaction from a message
+ */
+export const getDeleteMessageReactionUrl = (messageId: number) => {
+  return `/api/gemini/messages/${messageId}/react`;
+};
+
+export const deleteMessageReaction = async (
+  messageId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteMessageReactionUrl(messageId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteMessageReactionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMessageReaction>>,
+    TError,
+    { messageId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMessageReaction>>,
+  TError,
+  { messageId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMessageReaction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMessageReaction>>,
+    { messageId: number }
+  > = (props) => {
+    const { messageId } = props ?? {};
+
+    return deleteMessageReaction(messageId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMessageReactionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMessageReaction>>
+>;
+
+export type DeleteMessageReactionMutationError = ErrorType<void>;
+
+/**
+ * @summary Remove a reaction from a message
+ */
+export const useDeleteMessageReaction = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMessageReaction>>,
+    TError,
+    { messageId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMessageReaction>>,
+  TError,
+  { messageId: number },
+  TContext
+> => {
+  return useMutation(getDeleteMessageReactionMutationOptions(options));
+};
+
+/**
+ * @summary List all reactions for a conversation
+ */
+export const getListConversationReactionsUrl = (id: number) => {
+  return `/api/gemini/conversations/${id}/reactions`;
+};
+
+export const listConversationReactions = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MessageReaction[]> => {
+  return customFetch<MessageReaction[]>(getListConversationReactionsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListConversationReactionsQueryKey = (id: number) => {
+  return [`/api/gemini/conversations/${id}/reactions`] as const;
+};
+
+export const getListConversationReactionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listConversationReactions>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listConversationReactions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListConversationReactionsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listConversationReactions>>
+  > = ({ signal }) =>
+    listConversationReactions(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listConversationReactions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListConversationReactionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listConversationReactions>>
+>;
+export type ListConversationReactionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all reactions for a conversation
+ */
+
+export function useListConversationReactions<
+  TData = Awaited<ReturnType<typeof listConversationReactions>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listConversationReactions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListConversationReactionsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List messages in a conversation

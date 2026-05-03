@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Send, Plus, Bot, User, Loader2, Trash2, BrainCircuit,
   FileText, Globe, Pin, PinOff, Archive, ArchiveRestore, ChevronDown, ChevronRight,
-  Pencil, Check, X, Search, MessageSquare, Download
+  Pencil, Check, X, Search, MessageSquare, Download, ThumbsUp, ThumbsDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -24,6 +24,10 @@ import {
   getSearchGeminiMessagesQueryKey,
   useGetGeminiConversation,
   useListGeminiMessages,
+  useListConversationReactions,
+  useReactToMessage,
+  useDeleteMessageReaction,
+  getListConversationReactionsQueryKey,
   getListGeminiMessagesQueryKey,
   getGetGeminiConversationQueryKey,
   getListGeminiConversationsQueryKey,
@@ -236,6 +240,31 @@ export default function ChatPage() {
     activeId as number,
     { query: { enabled: !!activeId, queryKey: getListGeminiMessagesQueryKey(activeId as number) } }
   );
+
+  const { data: reactions = [] } = useListConversationReactions(
+    activeId as number,
+    { query: { enabled: !!activeId, queryKey: getListConversationReactionsQueryKey(activeId as number) } }
+  );
+
+  const reactMutation = useReactToMessage();
+  const deleteReactionMutation = useDeleteMessageReaction();
+
+  const reactionsMap = Object.fromEntries(
+    (reactions as Array<{ messageId: number; reaction: string }>).map((r) => [r.messageId, r.reaction])
+  );
+
+  function handleReact(messageId: number, reaction: "helpful" | "unhelpful") {
+    const current = reactionsMap[messageId];
+    if (current === reaction) {
+      deleteReactionMutation.mutate({ messageId }, {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: getListConversationReactionsQueryKey(activeId as number) }),
+      });
+    } else {
+      reactMutation.mutate({ messageId, data: { reaction } }, {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: getListConversationReactionsQueryKey(activeId as number) }),
+      });
+    }
+  }
 
   useEffect(() => {
     if (typedConvos.length && !activeId) {
@@ -543,10 +572,11 @@ export default function ChatPage() {
                     const ragMeta = isAssistant && assistantOrder >= 0
                       ? ragMetaMap[messages.findIndex((_, i) => i === idx - 1) + 1] ?? ragMetaMap[idx]
                       : undefined;
+                    const currentReaction = reactionsMap[m.id];
                     return (
                       <div key={m.id} className="space-y-0.5">
                         {isAssistant && ragMeta && <RagContextBadge meta={ragMeta} />}
-                        <div className={`flex gap-4 ${isAssistant ? "justify-start" : "justify-end"} mb-4`}>
+                        <div className={`flex gap-4 ${isAssistant ? "justify-start" : "justify-end"} mb-1`}>
                           {isAssistant && (
                             <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center shrink-0">
                               <Bot className="w-5 h-5 text-primary" />
@@ -563,6 +593,34 @@ export default function ChatPage() {
                             </div>
                           )}
                         </div>
+                        {isAssistant && m.id > 0 && (
+                          <div className="flex items-center gap-1 pl-12 mb-3">
+                            <button
+                              onClick={() => handleReact(m.id, "helpful")}
+                              title="Helpful"
+                              className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs transition-colors ${
+                                currentReaction === "helpful"
+                                  ? "text-green-400 bg-green-400/15"
+                                  : "text-muted-foreground/40 hover:text-green-400 hover:bg-green-400/10"
+                              }`}
+                            >
+                              <ThumbsUp className="w-3 h-3" />
+                              {currentReaction === "helpful" && <span>Helpful</span>}
+                            </button>
+                            <button
+                              onClick={() => handleReact(m.id, "unhelpful")}
+                              title="Not helpful"
+                              className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs transition-colors ${
+                                currentReaction === "unhelpful"
+                                  ? "text-red-400 bg-red-400/15"
+                                  : "text-muted-foreground/40 hover:text-red-400 hover:bg-red-400/10"
+                              }`}
+                            >
+                              <ThumbsDown className="w-3 h-3" />
+                              {currentReaction === "unhelpful" && <span>Not helpful</span>}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })

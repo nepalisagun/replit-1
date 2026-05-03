@@ -206,6 +206,69 @@ paths:
               schema:
                 $ref: "#/components/schemas/GeminiError"
 
+  /gemini/messages/{messageId}/react:
+    post:
+      operationId: reactToMessage
+      tags: [gemini]
+      summary: Set or update a reaction on a message
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReactToMessageBody"
+      responses:
+        "200":
+          description: Reaction saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageReaction"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteMessageReaction
+      tags: [gemini]
+      summary: Remove a reaction from a message
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Reaction removed
+        "404":
+          description: Not found
+
+  /gemini/conversations/{id}/reactions:
+    get:
+      operationId: listConversationReactions
+      tags: [gemini]
+      summary: List all reactions for a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reactions list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MessageReaction"
+
   /gemini/conversations/{id}/messages:
     get:
       operationId: listGeminiMessages
@@ -656,6 +719,34 @@ components:
           type: string
       required:
         - status
+
+    ReactToMessageBody:
+      type: object
+      properties:
+        reaction:
+          type: string
+          enum: [helpful, unhelpful]
+      required:
+        - reaction
+
+    MessageReaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        messageId:
+          type: integer
+        reaction:
+          type: string
+          enum: [helpful, unhelpful]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - messageId
+        - reaction
+        - createdAt
 
     GeminiSearchResult:
       type: object

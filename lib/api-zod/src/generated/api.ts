@@ -137,6 +137,48 @@ export const DeleteGeminiConversationParams = zod.object({
 });
 
 /**
+ * @summary Set or update a reaction on a message
+ */
+export const ReactToMessageParams = zod.object({
+  messageId: zod.coerce.number(),
+});
+
+export const ReactToMessageBody = zod.object({
+  reaction: zod.enum(["helpful", "unhelpful"]),
+});
+
+export const ReactToMessageResponse = zod.object({
+  id: zod.number(),
+  messageId: zod.number(),
+  reaction: zod.enum(["helpful", "unhelpful"]),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Remove a reaction from a message
+ */
+export const DeleteMessageReactionParams = zod.object({
+  messageId: zod.coerce.number(),
+});
+
+/**
+ * @summary List all reactions for a conversation
+ */
+export const ListConversationReactionsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListConversationReactionsResponseItem = zod.object({
+  id: zod.number(),
+  messageId: zod.number(),
+  reaction: zod.enum(["helpful", "unhelpful"]),
+  createdAt: zod.coerce.date(),
+});
+export const ListConversationReactionsResponse = zod.array(
+  ListConversationReactionsResponseItem,
+);
+
+/**
  * @summary List messages in a conversation
  */
 export const ListGeminiMessagesParams = zod.object({

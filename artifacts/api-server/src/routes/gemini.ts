@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { conversations, messages, agentSettings } from "@workspace/db";
-import { eq, desc, ilike, sql } from "drizzle-orm";
+import { conversations, messages, agentSettings, messageReactions, agentEvents } from "@workspace/db";
+import { eq, desc, ilike, inArray } from "drizzle-orm";
 import {
   CreateGeminiConversationBody,
   RenameGeminiConversationBody,
@@ -159,6 +159,57 @@ router.delete("/gemini/conversations/:id", async (req, res) => {
     return;
   }
   res.status(204).send();
+});
+
+router.post("/gemini/messages/:messageId/react", async (req, res) => {
+  const messageId = parseInt(req.params.messageId, 10);
+  if (isNaN(messageId)) { res.status(400).json({ error: "Invalid messageId" }); return; }
+  const { reaction } = req.body as { reaction?: string };
+  if (reaction !== "helpful" && reaction !== "unhelpful") {
+    res.status(400).json({ error: "reaction must be 'helpful' or 'unhelpful'" }); return;
+  }
+  const [msg] = await db.select().from(messages).where(eq(messages.id, messageId));
+  if (!msg) { res.status(404).json({ error: "Message not found" }); return; }
+
+  await db
+    .insert(messageReactions)
+    .values({ messageId, reaction })
+    .onConflictDoUpdate({ target: messageReactions.messageId, set: { reaction } });
+
+  const [saved] = await db.select().from(messageReactions).where(eq(messageReactions.messageId, messageId));
+
+  await db.insert(agentEvents).values({
+    eventType: "message_reaction",
+    contextId: String(messageId),
+    payload: JSON.stringify({ reaction, conversationId: msg.conversationId }),
+    status: "success",
+  });
+
+  res.json(saved);
+});
+
+router.delete("/gemini/messages/:messageId/react", async (req, res) => {
+  const messageId = parseInt(req.params.messageId, 10);
+  if (isNaN(messageId)) { res.status(400).json({ error: "Invalid messageId" }); return; }
+  const deleted = await db
+    .delete(messageReactions)
+    .where(eq(messageReactions.messageId, messageId))
+    .returning();
+  if (!deleted.length) { res.status(404).json({ error: "No reaction found" }); return; }
+  res.status(204).send();
+});
+
+router.get("/gemini/conversations/:id/reactions", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const msgs = await db.select({ id: messages.id }).from(messages).where(eq(messages.conversationId, id));
+  if (!msgs.length) { res.json([]); return; }
+  const msgIds = msgs.map((m) => m.id);
+  const reactions = await db
+    .select()
+    .from(messageReactions)
+    .where(inArray(messageReactions.messageId, msgIds));
+  res.json(reactions);
 });
 
 router.get("/gemini/conversations/:id/messages", async (req, res) => {

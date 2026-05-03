@@ -9,6 +9,33 @@ export interface HealthStatus {
   status: string;
 }
 
+export type ReactToMessageBodyReaction =
+  (typeof ReactToMessageBodyReaction)[keyof typeof ReactToMessageBodyReaction];
+
+export const ReactToMessageBodyReaction = {
+  helpful: "helpful",
+  unhelpful: "unhelpful",
+} as const;
+
+export interface ReactToMessageBody {
+  reaction: ReactToMessageBodyReaction;
+}
+
+export type MessageReactionReaction =
+  (typeof MessageReactionReaction)[keyof typeof MessageReactionReaction];
+
+export const MessageReactionReaction = {
+  helpful: "helpful",
+  unhelpful: "unhelpful",
+} as const;
+
+export interface MessageReaction {
+  id: number;
+  messageId: number;
+  reaction: MessageReactionReaction;
+  createdAt: string;
+}
+
 export interface GeminiSearchResult {
   messageId: number;
   conversationId: number;

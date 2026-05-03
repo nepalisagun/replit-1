@@ -7,3 +7,4 @@ export * from "./toolHealth";
 export * from "./webSources";
 export * from "./vectorType";
 export * from "./settings";
+export * from "./messageReactions";
