@@ -795,10 +795,16 @@ export default function ChatPage() {
                     ) : (
                       <div className="flex gap-4 justify-start mb-4">
                         <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center shrink-0">
-                          <Bot className="w-5 h-5 text-primary animate-pulse" />
+                          <Bot className="w-5 h-5 text-primary" />
                         </div>
-                        <div className="px-4 py-3 rounded-lg text-sm bg-muted text-muted-foreground">
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                        <div className="px-4 py-3 rounded-lg text-sm bg-muted text-muted-foreground flex items-center gap-1">
+                          {[0, 1, 2].map((i) => (
+                            <span
+                              key={i}
+                              className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce"
+                              style={{ animationDelay: `${i * 150}ms`, animationDuration: "900ms" }}
+                            />
+                          ))}
                         </div>
                       </div>
                     )}
