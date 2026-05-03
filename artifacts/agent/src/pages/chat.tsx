@@ -377,6 +377,13 @@ export default function ChatPage() {
   }, [typedConvos, activeId]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, streamBuffer]);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [input]);
   useEffect(() => { setRagMetaMap({}); setPendingRagMeta(null); }, [activeId]);
 
   function invalidateConvos() {
@@ -821,7 +828,7 @@ export default function ChatPage() {
                     }
                   }}
                   placeholder="Message Nexus..."
-                  className="w-full bg-background border border-input rounded-md px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-none h-[52px] max-h-32"
+                  className="w-full bg-background border border-input rounded-md px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-none min-h-[52px] max-h-48 overflow-y-auto"
                   rows={1}
                 />
                 <Button
