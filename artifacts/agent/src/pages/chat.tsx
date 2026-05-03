@@ -186,6 +186,13 @@ export default function ChatPage() {
             const json = JSON.parse(line.slice(6));
             if (json.done) break;
             if (json.ragContext) { capturedRagMeta = json.ragContext as RagMeta; setPendingRagMeta(capturedRagMeta); }
+            if (json.titleUpdate) {
+              queryClient.setQueryData(
+                getListGeminiConversationsQueryKey(),
+                (old: Convo[] | undefined) =>
+                  old?.map((c) => c.id === json.titleUpdate.id ? { ...c, title: json.titleUpdate.title } : c) ?? old
+              );
+            }
             if (json.content) setStreamBuffer((prev) => prev + json.content);
           }
         }

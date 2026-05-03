@@ -258,6 +258,39 @@ router.post("/gemini/conversations/:id/messages", async (req, res) => {
       content: fullResponse,
     });
 
+    // Auto-rename on first exchange (title is still the default "New Conversation")
+    const allMsgs = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.conversationId, conversationId));
+
+    if (allMsgs.length === 2 && convo.title === "New Conversation") {
+      try {
+        const titleResult = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [
+            {
+              role: "user" as const,
+              parts: [{
+                text: `Generate a concise 4-6 word title for a conversation that starts with this user message: "${body.data.content}"\n\nRespond with ONLY the title, no quotes, no punctuation at the end.`,
+              }],
+            },
+          ],
+          config: { maxOutputTokens: 30 },
+        });
+        const newTitle = titleResult.text?.trim().replace(/^["']|["']$/g, "").slice(0, 60);
+        if (newTitle && newTitle.length > 2) {
+          await db
+            .update(conversations)
+            .set({ title: newTitle })
+            .where(eq(conversations.id, conversationId));
+          res.write(`data: ${JSON.stringify({ titleUpdate: { id: conversationId, title: newTitle } })}\n\n`);
+        }
+      } catch (err) {
+        req.log.warn({ err }, "Title generation failed — keeping default");
+      }
+    }
+
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   } catch (err) {
     req.log.error({ err }, "Gemini stream error");
