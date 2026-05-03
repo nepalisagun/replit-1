@@ -831,6 +831,13 @@ export default function ChatPage() {
                   className="w-full bg-background border border-input rounded-md px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-none min-h-[52px] max-h-48 overflow-y-auto"
                   rows={1}
                 />
+                {input.length > 0 && (
+                  <div className="flex justify-end gap-2 mt-1 text-[11px] text-muted-foreground/50 select-none pointer-events-none transition-opacity duration-150">
+                    <span>{input.trim().split(/\s+/).filter(Boolean).length} {input.trim().split(/\s+/).filter(Boolean).length === 1 ? "word" : "words"}</span>
+                    <span>·</span>
+                    <span>{input.length} {input.length === 1 ? "char" : "chars"}</span>
+                  </div>
+                )}
                 <Button
                   size="icon"
                   className="absolute right-2 top-[10px] h-8 w-8 rounded bg-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
