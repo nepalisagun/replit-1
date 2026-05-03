@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Send, Plus, Bot, User, Loader2, Trash2, BrainCircuit,
   FileText, Globe, Pin, PinOff, Archive, ArchiveRestore, ChevronDown, ChevronRight,
-  Pencil, Check, X, Search, MessageSquare, Download, ThumbsUp, ThumbsDown, Copy, RefreshCw
+  Pencil, Check, X, Search, MessageSquare, Download, ThumbsUp, ThumbsDown, Copy, RefreshCw, Square
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -246,6 +246,7 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 300);
@@ -336,8 +337,10 @@ export default function ChatPage() {
     }
 
     let capturedRagMeta: RagMeta | null = null;
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
-      const response = await fetch(`${BASE}/api/gemini/conversations/${activeId}/regenerate`, { method: "POST" });
+      const response = await fetch(`${BASE}/api/gemini/conversations/${activeId}/regenerate`, { method: "POST", signal: controller.signal });
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -356,7 +359,7 @@ export default function ChatPage() {
           }
         }
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { if (e instanceof Error && e.name !== "AbortError") console.error(e); }
     finally {
       setIsStreaming(false);
       setStreamBuffer("");
@@ -368,6 +371,8 @@ export default function ChatPage() {
       setPendingRagMeta(null);
     }
   };
+
+  const handleStop = () => { abortRef.current?.abort(); };
 
   useEffect(() => {
     if (typedConvos.length && !activeId) {
@@ -436,12 +441,16 @@ export default function ChatPage() {
 
     let capturedRagMeta: RagMeta | null = null;
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
       const response = await fetch(`${BASE}/api/gemini/conversations/${activeId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: userMessage }),
+        signal: controller.signal,
       });
 
       const reader = response.body!.getReader();
@@ -470,7 +479,7 @@ export default function ChatPage() {
           }
         }
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { if (e instanceof Error && e.name !== "AbortError") console.error(e); }
     finally {
       setIsStreaming(false);
       setStreamBuffer("");
@@ -844,14 +853,25 @@ export default function ChatPage() {
                     <span>{input.length} {input.length === 1 ? "char" : "chars"}</span>
                   </div>
                 )}
-                <Button
-                  size="icon"
-                  className="absolute right-2 top-[10px] h-8 w-8 rounded bg-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
-                  onClick={handleSend}
-                  disabled={!input.trim() || isStreaming}
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
+                {isStreaming ? (
+                  <Button
+                    size="icon"
+                    onClick={handleStop}
+                    className="absolute right-2 top-[10px] h-8 w-8 rounded bg-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                    title="Stop generation"
+                  >
+                    <Square className="w-3.5 h-3.5 fill-current" />
+                  </Button>
+                ) : (
+                  <Button
+                    size="icon"
+                    className="absolute right-2 top-[10px] h-8 w-8 rounded bg-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+                    onClick={handleSend}
+                    disabled={!input.trim()}
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
             </div>
           </>
