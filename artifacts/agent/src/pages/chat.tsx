@@ -245,6 +245,7 @@ export default function ChatPage() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 300);
@@ -803,9 +804,22 @@ export default function ChatPage() {
             <div className="p-4 border-t border-border bg-card">
               <div className="max-w-3xl mx-auto relative">
                 <textarea
+                  ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); return; }
+                    if ((e.key === "Enter" && e.ctrlKey) || (e.key === "Enter" && e.metaKey)) { e.preventDefault(); handleSend(); return; }
+                    if (e.key === "Escape" && input.trim()) { e.preventDefault(); setInput(""); return; }
+                    if (e.key === "ArrowUp" && !input.trim() && !isStreaming) {
+                      e.preventDefault();
+                      const lastUser = [...(messages as MsgRow[])].reverse().find((m) => m.role === "user");
+                      if (lastUser) {
+                        setInput(lastUser.content);
+                        setTimeout(() => { textareaRef.current?.select(); }, 0);
+                      }
+                    }
+                  }}
                   placeholder="Message Nexus..."
                   className="w-full bg-background border border-input rounded-md px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-none h-[52px] max-h-32"
                   rows={1}
