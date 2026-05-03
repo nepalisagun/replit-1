@@ -12,6 +12,8 @@ export interface HealthStatus {
 export interface GeminiConversation {
   id: number;
   title: string;
+  pinned: boolean;
+  archived: boolean;
   createdAt: string;
 }
 

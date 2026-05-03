@@ -73,6 +73,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/GeminiConversation"
 
+  /gemini/conversations/{id}/pin:
+    patch:
+      operationId: pinGeminiConversation
+      tags: [gemini]
+      summary: Toggle pin on a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiConversation"
+
+  /gemini/conversations/{id}/archive:
+    patch:
+      operationId: archiveGeminiConversation
+      tags: [gemini]
+      summary: Toggle archive on a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiConversation"
+
   /gemini/conversations/{id}:
     get:
       operationId: getGeminiConversation
@@ -575,12 +613,18 @@ components:
           type: integer
         title:
           type: string
+        pinned:
+          type: boolean
+        archived:
+          type: boolean
         createdAt:
           type: string
           format: date-time
       required:
         - id
         - title
+        - pinned
+        - archived
         - createdAt
 
     GeminiMessage:

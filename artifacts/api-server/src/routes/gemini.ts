@@ -21,8 +21,8 @@ router.get("/gemini/conversations", async (req, res) => {
   const convos = await db
     .select()
     .from(conversations)
-    .orderBy(desc(conversations.createdAt));
-  res.json(convos.map((c) => ({ id: c.id, title: c.title, createdAt: c.createdAt })));
+    .orderBy(desc(conversations.pinned), desc(conversations.createdAt));
+  res.json(convos.map((c) => ({ id: c.id, title: c.title, pinned: c.pinned, archived: c.archived, createdAt: c.createdAt })));
 });
 
 router.post("/gemini/conversations", async (req, res) => {
@@ -35,7 +35,7 @@ router.post("/gemini/conversations", async (req, res) => {
     .insert(conversations)
     .values({ title: parsed.data.title })
     .returning();
-  res.status(201).json({ id: convo.id, title: convo.title, createdAt: convo.createdAt });
+  res.status(201).json({ id: convo.id, title: convo.title, pinned: convo.pinned, archived: convo.archived, createdAt: convo.createdAt });
 });
 
 router.get("/gemini/conversations/:id", async (req, res) => {
@@ -63,6 +63,32 @@ router.get("/gemini/conversations/:id", async (req, res) => {
     createdAt: convo.createdAt,
     messages: msgs,
   });
+});
+
+router.patch("/gemini/conversations/:id/pin", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [existing] = await db.select().from(conversations).where(eq(conversations.id, id));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+  const [updated] = await db
+    .update(conversations)
+    .set({ pinned: !existing.pinned })
+    .where(eq(conversations.id, id))
+    .returning();
+  res.json({ id: updated.id, title: updated.title, pinned: updated.pinned, archived: updated.archived, createdAt: updated.createdAt });
+});
+
+router.patch("/gemini/conversations/:id/archive", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [existing] = await db.select().from(conversations).where(eq(conversations.id, id));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+  const [updated] = await db
+    .update(conversations)
+    .set({ archived: !existing.archived, pinned: existing.archived ? existing.pinned : false })
+    .where(eq(conversations.id, id))
+    .returning();
+  res.json({ id: updated.id, title: updated.title, pinned: updated.pinned, archived: updated.archived, createdAt: updated.createdAt });
 });
 
 router.delete("/gemini/conversations/:id", async (req, res) => {

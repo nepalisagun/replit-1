@@ -21,6 +21,8 @@ export const HealthCheckResponse = zod.object({
 export const ListGeminiConversationsResponseItem = zod.object({
   id: zod.number(),
   title: zod.string(),
+  pinned: zod.boolean(),
+  archived: zod.boolean(),
   createdAt: zod.coerce.date(),
 });
 export const ListGeminiConversationsResponse = zod.array(
@@ -32,6 +34,36 @@ export const ListGeminiConversationsResponse = zod.array(
  */
 export const CreateGeminiConversationBody = zod.object({
   title: zod.string(),
+});
+
+/**
+ * @summary Toggle pin on a conversation
+ */
+export const PinGeminiConversationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PinGeminiConversationResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  pinned: zod.boolean(),
+  archived: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Toggle archive on a conversation
+ */
+export const ArchiveGeminiConversationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ArchiveGeminiConversationResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  pinned: zod.boolean(),
+  archived: zod.boolean(),
+  createdAt: zod.coerce.date(),
 });
 
 /**

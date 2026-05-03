@@ -299,6 +299,174 @@ export const useCreateGeminiConversation = <
 };
 
 /**
+ * @summary Toggle pin on a conversation
+ */
+export const getPinGeminiConversationUrl = (id: number) => {
+  return `/api/gemini/conversations/${id}/pin`;
+};
+
+export const pinGeminiConversation = async (
+  id: number,
+  options?: RequestInit,
+): Promise<GeminiConversation> => {
+  return customFetch<GeminiConversation>(getPinGeminiConversationUrl(id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getPinGeminiConversationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof pinGeminiConversation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof pinGeminiConversation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["pinGeminiConversation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof pinGeminiConversation>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return pinGeminiConversation(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PinGeminiConversationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof pinGeminiConversation>>
+>;
+
+export type PinGeminiConversationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Toggle pin on a conversation
+ */
+export const usePinGeminiConversation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof pinGeminiConversation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof pinGeminiConversation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getPinGeminiConversationMutationOptions(options));
+};
+
+/**
+ * @summary Toggle archive on a conversation
+ */
+export const getArchiveGeminiConversationUrl = (id: number) => {
+  return `/api/gemini/conversations/${id}/archive`;
+};
+
+export const archiveGeminiConversation = async (
+  id: number,
+  options?: RequestInit,
+): Promise<GeminiConversation> => {
+  return customFetch<GeminiConversation>(getArchiveGeminiConversationUrl(id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getArchiveGeminiConversationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveGeminiConversation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof archiveGeminiConversation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["archiveGeminiConversation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof archiveGeminiConversation>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return archiveGeminiConversation(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ArchiveGeminiConversationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof archiveGeminiConversation>>
+>;
+
+export type ArchiveGeminiConversationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Toggle archive on a conversation
+ */
+export const useArchiveGeminiConversation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveGeminiConversation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof archiveGeminiConversation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getArchiveGeminiConversationMutationOptions(options));
+};
+
+/**
  * @summary Get conversation with messages
  */
 export const getGetGeminiConversationUrl = (id: number) => {
