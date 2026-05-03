@@ -1,0 +1,40 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies — installed fresh inside the image
+node_modules
+**/node_modules
+
+# Build outputs — rebuilt inside the image
+**/dist
+artifacts/agent/dist
+
+# Replit-specific files not needed in Docker
+.replit
+replit.nix
+.upm
+.cache
+.local
+attached_assets
+
+# Logs and temp files
+**/*.log
+**/npm-debug.log*
+**/.DS_Store
+**/*.swp
+**/*.swo
+
+# Test / CI artifacts
+coverage
+.nyc_output
+
+# Editor metadata
+.vscode
+.idea
+**/*.map
+
+# Secrets (never bake into image — pass via env / secrets manager)
+.env
+.env.*
+!.env.example
