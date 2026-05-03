@@ -1,4 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Send, Plus, Bot, User, Loader2, Trash2, BrainCircuit,
@@ -32,6 +35,40 @@ import {
   getGetGeminiConversationQueryKey,
   getListGeminiConversationsQueryKey,
 } from "@workspace/api-client-react";
+
+const MarkdownMessage = memo(({ content }: { content: string }) => (
+  <ReactMarkdown
+    remarkPlugins={[remarkGfm]}
+    rehypePlugins={[rehypeHighlight]}
+    components={{
+      p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+      h1: ({ children }) => <h1 className="text-base font-bold mt-3 mb-1">{children}</h1>,
+      h2: ({ children }) => <h2 className="text-sm font-bold mt-3 mb-1">{children}</h2>,
+      h3: ({ children }) => <h3 className="text-sm font-semibold mt-2 mb-1">{children}</h3>,
+      ul: ({ children }) => <ul className="list-disc list-outside pl-4 mb-2 space-y-0.5">{children}</ul>,
+      ol: ({ children }) => <ol className="list-decimal list-outside pl-4 mb-2 space-y-0.5">{children}</ol>,
+      li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+      blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/50 pl-3 my-2 text-muted-foreground italic">{children}</blockquote>,
+      code: ({ className, children, ...props }) => {
+        const isBlock = className?.startsWith("language-");
+        return isBlock ? (
+          <code className={`${className} text-xs`} {...props}>{children}</code>
+        ) : (
+          <code className="bg-black/30 text-primary px-1 py-0.5 rounded text-xs font-mono" {...props}>{children}</code>
+        );
+      },
+      pre: ({ children }) => <pre className="rounded-lg overflow-x-auto my-2 text-xs">{children}</pre>,
+      a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:opacity-80">{children}</a>,
+      table: ({ children }) => <div className="overflow-x-auto my-2"><table className="text-xs border-collapse w-full">{children}</table></div>,
+      th: ({ children }) => <th className="border border-border px-2 py-1 bg-muted font-semibold text-left">{children}</th>,
+      td: ({ children }) => <td className="border border-border px-2 py-1">{children}</td>,
+      hr: () => <hr className="border-border my-3" />,
+      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+    }}
+  >
+    {content}
+  </ReactMarkdown>
+));
 
 interface RagMeta { memoriesUsed: number; documentsUsed: number; webSourcesUsed: number; total: number; }
 
@@ -591,10 +628,10 @@ export default function ChatPage() {
                               <Bot className="w-5 h-5 text-primary" />
                             </div>
                           )}
-                          <div className={`px-4 py-3 rounded-lg max-w-[80%] text-sm whitespace-pre-wrap ${
-                            isAssistant ? "bg-muted text-foreground" : "bg-primary text-primary-foreground"
+                          <div className={`px-4 py-3 rounded-lg max-w-[80%] text-sm ${
+                            isAssistant ? "bg-muted text-foreground" : "bg-primary text-primary-foreground whitespace-pre-wrap"
                           }`}>
-                            {m.content}
+                            {isAssistant ? <MarkdownMessage content={m.content} /> : m.content}
                           </div>
                           {!isAssistant && (
                             <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0">
