@@ -29,6 +29,7 @@ import type {
   GeminiConversationWithMessages,
   GeminiError,
   GeminiMessage,
+  GeminiSearchResult,
   GenerateGeminiImageBody,
   GenerateGeminiImageResponse,
   HealthStatus,
@@ -42,6 +43,7 @@ import type {
   ReflectionResult,
   RenameGeminiConversationBody,
   RunReflectionBody,
+  SearchGeminiMessagesParams,
   SendGeminiMessageBody,
   ToolHealth,
   UpdateMemoryBody,
@@ -128,6 +130,106 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Search messages across all conversations
+ */
+export const getSearchGeminiMessagesUrl = (
+  params: SearchGeminiMessagesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/gemini/search?${stringifiedParams}`
+    : `/api/gemini/search`;
+};
+
+export const searchGeminiMessages = async (
+  params: SearchGeminiMessagesParams,
+  options?: RequestInit,
+): Promise<GeminiSearchResult[]> => {
+  return customFetch<GeminiSearchResult[]>(getSearchGeminiMessagesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSearchGeminiMessagesQueryKey = (
+  params?: SearchGeminiMessagesParams,
+) => {
+  return [`/api/gemini/search`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchGeminiMessagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchGeminiMessages>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchGeminiMessagesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchGeminiMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getSearchGeminiMessagesQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof searchGeminiMessages>>
+  > = ({ signal }) =>
+    searchGeminiMessages(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchGeminiMessages>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchGeminiMessagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchGeminiMessages>>
+>;
+export type SearchGeminiMessagesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Search messages across all conversations
+ */
+
+export function useSearchGeminiMessages<
+  TData = Awaited<ReturnType<typeof searchGeminiMessages>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchGeminiMessagesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchGeminiMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchGeminiMessagesQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

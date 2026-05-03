@@ -9,6 +9,15 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface GeminiSearchResult {
+  messageId: number;
+  conversationId: number;
+  conversationTitle: string;
+  role: string;
+  excerpt: string;
+  createdAt: string;
+}
+
 export interface RenameGeminiConversationBody {
   /**
    * @minLength 1
@@ -304,6 +313,13 @@ export interface UpdateSettingsBody {
   maxContextMessages?: number;
   timezone?: string;
 }
+
+export type SearchGeminiMessagesParams = {
+  /**
+   * @minLength 1
+   */
+  q: string;
+};
 
 export type ListMemoriesParams = {
   type?: ListMemoriesType;

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { conversations, messages, agentSettings } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, ilike, sql } from "drizzle-orm";
 import {
   CreateGeminiConversationBody,
   RenameGeminiConversationBody,
@@ -17,6 +17,43 @@ import { generateImage } from "@workspace/integrations-gemini-ai/image";
 import { retrieveContext } from "./rag";
 
 const router = Router();
+
+router.get("/gemini/search", async (req, res) => {
+  const q = String(req.query.q ?? "").trim();
+  if (!q) { res.json([]); return; }
+  const pattern = `%${q}%`;
+  const rows = await db
+    .select({
+      messageId: messages.id,
+      conversationId: messages.conversationId,
+      conversationTitle: conversations.title,
+      role: messages.role,
+      content: messages.content,
+      createdAt: messages.createdAt,
+    })
+    .from(messages)
+    .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+    .where(ilike(messages.content, pattern))
+    .orderBy(desc(messages.createdAt))
+    .limit(30);
+
+  const EXCERPT_LEN = 120;
+  const results = rows.map((r) => {
+    const idx = r.content.toLowerCase().indexOf(q.toLowerCase());
+    const start = Math.max(0, idx - 40);
+    const raw = r.content.slice(start, start + EXCERPT_LEN);
+    const excerpt = (start > 0 ? "…" : "") + raw + (raw.length === EXCERPT_LEN ? "…" : "");
+    return {
+      messageId: r.messageId,
+      conversationId: r.conversationId,
+      conversationTitle: r.conversationTitle,
+      role: r.role,
+      excerpt,
+      createdAt: r.createdAt,
+    };
+  });
+  res.json(results);
+});
 
 router.get("/gemini/conversations", async (req, res) => {
   const convos = await db

@@ -41,6 +41,28 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
+  /gemini/search:
+    get:
+      operationId: searchGeminiMessages
+      tags: [gemini]
+      summary: Search messages across all conversations
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GeminiSearchResult"
+
   /gemini/conversations:
     get:
       operationId: listGeminiConversations
@@ -634,6 +656,30 @@ components:
           type: string
       required:
         - status
+
+    GeminiSearchResult:
+      type: object
+      properties:
+        messageId:
+          type: integer
+        conversationId:
+          type: integer
+        conversationTitle:
+          type: string
+        role:
+          type: string
+        excerpt:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - messageId
+        - conversationId
+        - conversationTitle
+        - role
+        - excerpt
+        - createdAt
 
     RenameGeminiConversationBody:
       type: object

@@ -16,6 +16,26 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * @summary Search messages across all conversations
+ */
+
+export const SearchGeminiMessagesQueryParams = zod.object({
+  q: zod.coerce.string().min(1),
+});
+
+export const SearchGeminiMessagesResponseItem = zod.object({
+  messageId: zod.number(),
+  conversationId: zod.number(),
+  conversationTitle: zod.string(),
+  role: zod.string(),
+  excerpt: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+export const SearchGeminiMessagesResponse = zod.array(
+  SearchGeminiMessagesResponseItem,
+);
+
+/**
  * @summary List all conversations
  */
 export const ListGeminiConversationsResponseItem = zod.object({
