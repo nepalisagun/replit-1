@@ -101,6 +101,81 @@ export async function retrieveContext(
   return results.sort((a, b) => b.similarity - a.similarity).slice(0, limit);
 }
 
+router.post("/rag/backfill", async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+  try {
+    // Fetch all rows without embeddings
+    const [noEmbedMems, noEmbedDocs, noEmbedSrcs] = await Promise.all([
+      db.execute(sql`SELECT id, content FROM memories WHERE embedding IS NULL`),
+      db.execute(sql`SELECT id, title, content FROM documents WHERE embedding IS NULL`),
+      db.execute(sql`SELECT id, query, snippet, normalized_summary FROM web_sources WHERE embedding IS NULL`),
+    ]);
+
+    const total =
+      noEmbedMems.rows.length + noEmbedDocs.rows.length + noEmbedSrcs.rows.length;
+
+    send({ phase: "start", total });
+
+    let done = 0;
+
+    for (const row of noEmbedMems.rows) {
+      try {
+        const embedding = await getEmbedding(String(row.content).slice(0, 512));
+        const vectorStr = vectorToSql(embedding);
+        await db.execute(
+          sql`UPDATE memories SET embedding = ${vectorStr}::vector WHERE id = ${row.id}`
+        );
+      } catch {
+        // skip individual failures
+      }
+      done++;
+      send({ phase: "progress", done, total, source: "memory", id: row.id });
+    }
+
+    for (const row of noEmbedDocs.rows) {
+      try {
+        const text = `${row.title}\n${row.content}`.slice(0, 512);
+        const embedding = await getEmbedding(text);
+        const vectorStr = vectorToSql(embedding);
+        await db.execute(
+          sql`UPDATE documents SET embedding = ${vectorStr}::vector WHERE id = ${row.id}`
+        );
+      } catch {
+        // skip individual failures
+      }
+      done++;
+      send({ phase: "progress", done, total, source: "document", id: row.id });
+    }
+
+    for (const row of noEmbedSrcs.rows) {
+      try {
+        const text = String(row.normalized_summary ?? row.snippet ?? row.query).slice(0, 512);
+        const embedding = await getEmbedding(text);
+        const vectorStr = vectorToSql(embedding);
+        await db.execute(
+          sql`UPDATE web_sources SET embedding = ${vectorStr}::vector WHERE id = ${row.id}`
+        );
+      } catch {
+        // skip individual failures
+      }
+      done++;
+      send({ phase: "progress", done, total, source: "web_source", id: row.id });
+    }
+
+    send({ phase: "done", done, total });
+  } catch (err) {
+    req.log.error({ err }, "Backfill failed");
+    send({ phase: "error", message: "Backfill failed" });
+  }
+
+  res.end();
+});
+
 router.post("/rag/search", async (req, res) => {
   const { query, limit, threshold } = req.body ?? {};
 
