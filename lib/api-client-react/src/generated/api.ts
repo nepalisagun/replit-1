@@ -40,6 +40,7 @@ import type {
   RagSearchBody,
   RagSearchResponse,
   ReflectionResult,
+  RenameGeminiConversationBody,
   RunReflectionBody,
   SendGeminiMessageBody,
   ToolHealth,
@@ -556,6 +557,94 @@ export function useGetGeminiConversation<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Rename a conversation
+ */
+export const getRenameGeminiConversationUrl = (id: number) => {
+  return `/api/gemini/conversations/${id}`;
+};
+
+export const renameGeminiConversation = async (
+  id: number,
+  renameGeminiConversationBody: RenameGeminiConversationBody,
+  options?: RequestInit,
+): Promise<GeminiConversation> => {
+  return customFetch<GeminiConversation>(getRenameGeminiConversationUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(renameGeminiConversationBody),
+  });
+};
+
+export const getRenameGeminiConversationMutationOptions = <
+  TError = ErrorType<GeminiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renameGeminiConversation>>,
+    TError,
+    { id: number; data: BodyType<RenameGeminiConversationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof renameGeminiConversation>>,
+  TError,
+  { id: number; data: BodyType<RenameGeminiConversationBody> },
+  TContext
+> => {
+  const mutationKey = ["renameGeminiConversation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof renameGeminiConversation>>,
+    { id: number; data: BodyType<RenameGeminiConversationBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return renameGeminiConversation(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RenameGeminiConversationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof renameGeminiConversation>>
+>;
+export type RenameGeminiConversationMutationBody =
+  BodyType<RenameGeminiConversationBody>;
+export type RenameGeminiConversationMutationError = ErrorType<GeminiError>;
+
+/**
+ * @summary Rename a conversation
+ */
+export const useRenameGeminiConversation = <
+  TError = ErrorType<GeminiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renameGeminiConversation>>,
+    TError,
+    { id: number; data: BodyType<RenameGeminiConversationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof renameGeminiConversation>>,
+  TError,
+  { id: number; data: BodyType<RenameGeminiConversationBody> },
+  TContext
+> => {
+  return useMutation(getRenameGeminiConversationMutationOptions(options));
+};
 
 /**
  * @summary Delete a conversation

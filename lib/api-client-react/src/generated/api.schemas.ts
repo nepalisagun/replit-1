@@ -9,6 +9,14 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface RenameGeminiConversationBody {
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  title: string;
+}
+
 export interface GeminiConversation {
   id: number;
   title: string;

@@ -135,6 +135,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GeminiError"
+    patch:
+      operationId: renameGeminiConversation
+      tags: [gemini]
+      summary: Rename a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameGeminiConversationBody"
+      responses:
+        "200":
+          description: Updated conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiConversation"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiError"
     delete:
       operationId: deleteGeminiConversation
       tags: [gemini]
@@ -605,6 +634,16 @@ components:
           type: string
       required:
         - status
+
+    RenameGeminiConversationBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+        - title
 
     GeminiConversation:
       type: object

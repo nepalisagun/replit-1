@@ -89,6 +89,27 @@ export const GetGeminiConversationResponse = zod.object({
 });
 
 /**
+ * @summary Rename a conversation
+ */
+export const RenameGeminiConversationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const renameGeminiConversationBodyTitleMax = 100;
+
+export const RenameGeminiConversationBody = zod.object({
+  title: zod.string().min(1).max(renameGeminiConversationBodyTitleMax),
+});
+
+export const RenameGeminiConversationResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  pinned: zod.boolean(),
+  archived: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Delete a conversation
  */
 export const DeleteGeminiConversationParams = zod.object({

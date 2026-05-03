@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Send, Plus, Bot, User, Loader2, Trash2, BrainCircuit,
-  FileText, Globe, Pin, PinOff, Archive, ArchiveRestore, ChevronDown, ChevronRight
+  FileText, Globe, Pin, PinOff, Archive, ArchiveRestore, ChevronDown, ChevronRight,
+  Pencil, Check, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,6 +13,7 @@ import {
   useDeleteGeminiConversation,
   usePinGeminiConversation,
   useArchiveGeminiConversation,
+  useRenameGeminiConversation,
   useGetGeminiConversation,
   useListGeminiMessages,
   getListGeminiMessagesQueryKey,
@@ -42,16 +44,71 @@ function RagContextBadge({ meta }: { meta: RagMeta }) {
 type Convo = { id: number; title: string; pinned: boolean; archived: boolean; createdAt: string };
 
 function ConvoItem({
-  c, active, onSelect, onDelete, onPin, onArchive, deletePending, pinPending, archivePending,
+  c, active, onSelect, onDelete, onPin, onArchive, onRename,
+  deletePending, pinPending, archivePending,
 }: {
   c: Convo; active: boolean;
   onSelect: () => void; onDelete: (e: React.MouseEvent) => void;
   onPin: (e: React.MouseEvent) => void; onArchive: (e: React.MouseEvent) => void;
+  onRename: (newTitle: string) => void;
   deletePending: boolean; pinPending: boolean; archivePending: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(c.title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function startEdit(e: React.MouseEvent) {
+    e.stopPropagation();
+    setDraft(c.title);
+    setEditing(true);
+    setTimeout(() => { inputRef.current?.select(); }, 0);
+  }
+
+  function commit(e?: React.MouseEvent) {
+    e?.stopPropagation();
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== c.title) onRename(trimmed);
+    setEditing(false);
+  }
+
+  function cancel(e?: React.MouseEvent) {
+    e?.stopPropagation();
+    setEditing(false);
+    setDraft(c.title);
+  }
+
+  if (editing) {
+    return (
+      <div className={`w-full px-2 py-1 rounded-md flex items-center gap-1 ${active ? "bg-primary/20" : "bg-muted"}`}>
+        <input
+          ref={inputRef}
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); commit(); }
+            if (e.key === "Escape") cancel();
+          }}
+          onClick={(e) => e.stopPropagation()}
+          className="flex-1 bg-background border border-ring rounded px-2 py-0.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring min-w-0"
+          maxLength={100}
+        />
+        <Button variant="ghost" size="icon" className="w-5 h-5 shrink-0 text-green-400 hover:bg-green-400/10"
+          onClick={commit} title="Save">
+          <Check className="w-3 h-3" />
+        </Button>
+        <Button variant="ghost" size="icon" className="w-5 h-5 shrink-0 text-muted-foreground hover:bg-muted"
+          onClick={cancel} title="Cancel">
+          <X className="w-3 h-3" />
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div
       onClick={onSelect}
+      onDoubleClick={startEdit}
       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors cursor-pointer group flex items-center gap-1 ${
         active ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"
       }`}
@@ -60,6 +117,10 @@ function ConvoItem({
       {c.archived && !c.pinned && <Archive className="w-3 h-3 shrink-0 text-muted-foreground/60" />}
       <span className="truncate flex-1">{c.title}</span>
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+        <Button variant="ghost" size="icon" className="w-5 h-5 hover:text-foreground hover:bg-muted"
+          onClick={startEdit} title="Rename">
+          <Pencil className="w-3 h-3" />
+        </Button>
         <Button variant="ghost" size="icon" className="w-5 h-5 hover:text-amber-400 hover:bg-amber-400/10"
           onClick={onPin} disabled={pinPending} title={c.pinned ? "Unpin" : "Pin"}>
           {c.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
@@ -93,6 +154,7 @@ export default function ChatPage() {
   const deleteConvo = useDeleteGeminiConversation();
   const pinConvo = usePinGeminiConversation();
   const archiveConvo = useArchiveGeminiConversation();
+  const renameConvo = useRenameGeminiConversation();
 
   const typedConvos = allConvos as Convo[];
   const pinned = typedConvos.filter((c) => c.pinned && !c.archived);
@@ -147,6 +209,12 @@ export default function ChatPage() {
         if (updated.archived && activeId === id) setActiveId(null);
         invalidateConvos();
       }
+    });
+  };
+
+  const handleRename = (id: number, newTitle: string) => {
+    renameConvo.mutate({ id, data: { title: newTitle } }, {
+      onSuccess: invalidateConvos,
     });
   };
 
@@ -223,6 +291,7 @@ export default function ChatPage() {
         onDelete={(e) => handleDeleteConvo(c.id, e)}
         onPin={(e) => handlePin(c.id, e)}
         onArchive={(e) => handleArchive(c.id, e)}
+        onRename={(newTitle) => handleRename(c.id, newTitle)}
         deletePending={deleteConvo.isPending}
         pinPending={pinConvo.isPending}
         archivePending={archiveConvo.isPending}

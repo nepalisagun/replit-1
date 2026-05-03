@@ -4,6 +4,7 @@ import { conversations, messages, agentSettings } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import {
   CreateGeminiConversationBody,
+  RenameGeminiConversationBody,
   SendGeminiMessageBody,
   GetGeminiConversationParams,
   DeleteGeminiConversationParams,
@@ -63,6 +64,21 @@ router.get("/gemini/conversations/:id", async (req, res) => {
     createdAt: convo.createdAt,
     messages: msgs,
   });
+});
+
+router.patch("/gemini/conversations/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const parsed = RenameGeminiConversationBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid body" }); return; }
+  const [existing] = await db.select().from(conversations).where(eq(conversations.id, id));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+  const [updated] = await db
+    .update(conversations)
+    .set({ title: parsed.data.title.trim() })
+    .where(eq(conversations.id, id))
+    .returning();
+  res.json({ id: updated.id, title: updated.title, pinned: updated.pinned, archived: updated.archived, createdAt: updated.createdAt });
 });
 
 router.patch("/gemini/conversations/:id/pin", async (req, res) => {
