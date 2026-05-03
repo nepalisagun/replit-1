@@ -4,23 +4,27 @@ on:
   push:
     branches:
       - repelit-dockerize
+    # Trigger the release job on any semver tag: v1.0.0, v2.3.1, etc.
+    tags:
+      - "v*.*.*"
   pull_request:
     branches:
       - repelit-dockerize
 
 env:
   REGISTRY: ghcr.io
-  # github.repository is "owner/repo-name"
   API_IMAGE: ghcr.io/${{ github.repository }}/nexus-api
   WEB_IMAGE: ghcr.io/${{ github.repository }}/nexus-web
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Job 1 — Build every commit on the branch, run smoke tests, publish SHA tags
+# ──────────────────────────────────────────────────────────────────────────────
 jobs:
   build-test-publish:
-    name: Build → Smoke test → Publish
+    name: Build → Smoke test → Publish (SHA)
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
-    # Required for pushing images to ghcr.io using GITHUB_TOKEN
     permissions:
       contents: read
       packages: write
@@ -32,11 +36,9 @@ jobs:
       HOST_PORT: 8080
 
     steps:
-      # ── Checkout ───────────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Docker Buildx + layer cache ────────────────────────────────────────
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -48,7 +50,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      # ── Log in to ghcr.io (only on real pushes, not PRs from forks) ────────
       - name: Log in to GitHub Container Registry
         if: github.event_name == 'push'
         uses: docker/login-action@v3
@@ -57,8 +58,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── Compute image tags ─────────────────────────────────────────────────
-      - name: Compute image metadata (api)
+      # SHA tag + rolling "latest" tag for branch pushes only
+      - name: Image metadata (api)
         id: meta-api
         uses: docker/metadata-action@v5
         with:
@@ -67,7 +68,7 @@ jobs:
             type=sha,prefix=sha-,format=short
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/repelit-dockerize' }}
 
-      - name: Compute image metadata (web)
+      - name: Image metadata (web)
         id: meta-web
         uses: docker/metadata-action@v5
         with:
@@ -76,21 +77,17 @@ jobs:
             type=sha,prefix=sha-,format=short
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/repelit-dockerize' }}
 
-      # ── Build api image ────────────────────────────────────────────────────
       - name: Build api image
         uses: docker/build-push-action@v6
         with:
           context: .
           target: api
-          # Load into local Docker daemon for the smoke test.
-          # On PRs we do not push to the registry.
           load: true
           push: false
           tags: nexus-api:ci
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
-      # ── Build web image ────────────────────────────────────────────────────
       - name: Build web image
         uses: docker/build-push-action@v6
         with:
@@ -107,8 +104,8 @@ jobs:
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-      # ── Smoke test ─────────────────────────────────────────────────────────
-      - name: Write .env for docker compose
+      # ── Smoke test ──────────────────────────────────────────────────────────
+      - name: Write .env
         run: |
           cat <<EOF > .env
           POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -123,21 +120,21 @@ jobs:
       - name: Wait for services to stabilise
         run: sleep 20
 
-      - name: Smoke test — nginx /health
+      - name: Smoke — nginx /health
         run: |
           curl --retry 10 --retry-delay 3 --retry-connrefused \
                --fail --silent --show-error \
                http://localhost:${HOST_PORT}/health
           echo "nginx: OK"
 
-      - name: Smoke test — API /api/healthz
+      - name: Smoke — API /api/healthz
         run: |
           curl --retry 10 --retry-delay 3 --retry-connrefused \
                --fail --silent --show-error \
                http://localhost:${HOST_PORT}/api/healthz
           echo "API: OK"
 
-      - name: Smoke test — Frontend index.html (HTTP 200)
+      - name: Smoke — Frontend index.html (HTTP 200)
         run: |
           STATUS=$(curl --retry 5 --retry-delay 2 --retry-connrefused \
                         --silent --output /dev/null --write-out "%{http_code}" \
@@ -153,10 +150,8 @@ jobs:
         if: failure()
         run: docker compose logs --no-color
 
-      # ── Publish to ghcr.io (push events only) ─────────────────────────────
-      # Re-build with --push after the smoke test passes.  The Buildx cache
-      # means this is essentially free — layers are already warm.
-      - name: Publish api image to ghcr.io
+      # ── Publish SHA + latest tags ───────────────────────────────────────────
+      - name: Publish api image
         if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
@@ -167,7 +162,7 @@ jobs:
           labels: ${{ steps.meta-api.outputs.labels }}
           cache-from: type=local,src=/tmp/.buildx-cache
 
-      - name: Publish web image to ghcr.io
+      - name: Publish web image
         if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
@@ -178,15 +173,110 @@ jobs:
           labels: ${{ steps.meta-web.outputs.labels }}
           cache-from: type=local,src=/tmp/.buildx-cache
 
-      # ── Print pull commands ────────────────────────────────────────────────
-      - name: Print published image references
+      - name: Print pull commands
         if: github.event_name == 'push'
         run: |
-          echo ""
-          echo "Images published to ghcr.io:"
+          echo "Images published:"
           echo "  docker pull ${{ env.API_IMAGE }}:latest"
           echo "  docker pull ${{ env.WEB_IMAGE }}:latest"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Job 2 — Semantic-version release (runs only on v*.*.* tags)
+#
+# Produces these tags from a single git tag, e.g. "v1.2.3":
+#   ghcr.io/.../nexus-api:1.2.3   ← exact patch version (immutable)
+#   ghcr.io/.../nexus-api:1.2     ← minor alias (moves on patch bumps)
+#   ghcr.io/.../nexus-api:1       ← major alias  (moves on minor/patch bumps)
+#   ghcr.io/.../nexus-api:latest  ← always the newest release
+# ──────────────────────────────────────────────────────────────────────────────
+  release:
+    name: Release (semver tags)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    # build-test-publish must pass before we stamp a release
+    needs: build-test-publish
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Restore build cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('Dockerfile', 'pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # docker/metadata-action understands semver automatically.
+      # Given tag "v1.2.3" it generates: 1.2.3  1.2  1  latest
+      - name: Semver metadata (api)
+        id: semver-api
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.API_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Semver metadata (web)
+        id: semver-web
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.WEB_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Publish api release image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: api
+          push: true
+          tags: ${{ steps.semver-api.outputs.tags }}
+          labels: ${{ steps.semver-api.outputs.labels }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+
+      - name: Publish web release image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: web
+          push: true
+          tags: ${{ steps.semver-web.outputs.tags }}
+          labels: ${{ steps.semver-web.outputs.labels }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+
+      - name: Print release tags
+        run: |
           echo ""
-          echo "SHA-pinned tags:"
-          echo "${{ steps.meta-api.outputs.tags }}" | grep sha
-          echo "${{ steps.meta-web.outputs.tags }}" | grep sha
+          echo "Release published for ${{ github.ref_name }}:"
+          echo ""
+          echo "  # Exact version (immutable — pin this in production)"
+          echo "  docker pull ${{ env.API_IMAGE }}:${{ github.ref_name }}"
+          echo "  docker pull ${{ env.WEB_IMAGE }}:${{ github.ref_name }}"
+          echo ""
+          echo "  # Rolling tags"
+          echo "  docker pull ${{ env.API_IMAGE }}:latest"
+          echo "  docker pull ${{ env.WEB_IMAGE }}:latest"
