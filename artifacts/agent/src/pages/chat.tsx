@@ -562,9 +562,26 @@ export default function ChatPage() {
             {activeConvo && (() => {
               const convoMeta = typedConvos.find((c) => c.id === activeConvo.id);
               const typedMessages = messages as MsgRow[];
+              const totalChars = typedMessages.reduce((sum, m) => sum + (m.content?.length ?? 0), 0);
+              const estTokens = Math.round(totalChars / 4);
+              const CTX_LIMIT = 1_048_576;
+              const usagePct = Math.min((estTokens / CTX_LIMIT) * 100, 100);
+              const usageColor = usagePct < 60 ? "bg-green-500" : usagePct < 85 ? "bg-amber-400" : "bg-red-500";
+              const usageLabel = estTokens >= 1000
+                ? `~${(estTokens / 1000).toFixed(1)}k`
+                : `~${estTokens}`;
               return (
                 <div className="h-12 px-4 border-b border-border flex items-center justify-between shrink-0">
                   <span className="text-sm font-medium truncate">{activeConvo.title}</span>
+                  <div className="flex items-center gap-2">
+                    {typedMessages.length > 0 && (
+                      <div className="flex items-center gap-1.5" title={`~${estTokens.toLocaleString()} / 1,048,576 estimated tokens used`}>
+                        <div className="w-16 h-1 bg-muted rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${usageColor}`} style={{ width: `${usagePct}%` }} />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground tabular-nums">{usageLabel}</span>
+                      </div>
+                    )}
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground hover:text-amber-400"
                       onClick={(e) => handlePin(activeConvo.id, e)} title={convoMeta?.pinned ? "Unpin" : "Pin"}>
@@ -602,6 +619,7 @@ export default function ChatPage() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                  </div>
                   </div>
                 </div>
               );
