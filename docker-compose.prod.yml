@@ -7,8 +7,25 @@
 #   • Pulls pre-built images from ghcr.io instead of building locally
 #   • Watchtower — polls ghcr.io every 5 minutes and hot-swaps containers
 #     when a new image is published (zero-touch continuous deployment)
+#   • Slack / Discord / webhook notifications on every update or failure
 #   • Resource limits and restart policies tuned for production
 #   • Structured JSON logging for both services
+#
+# Notification quick-start (pick one, set in .env):
+#
+#   Slack incoming webhook:
+#     WATCHTOWER_NOTIFICATION_URL=generic+https://hooks.slack.com/services/T.../B.../xxx
+#
+#   Discord webhook:
+#     WATCHTOWER_NOTIFICATION_URL=discord://TOKEN@CHANNEL_ID
+#
+#   Any HTTP endpoint (e.g. n8n, Zapier, custom):
+#     WATCHTOWER_NOTIFICATION_URL=generic+https://your-server.com/webhook
+#
+#   Multiple destinations (space-separated):
+#     WATCHTOWER_NOTIFICATION_URL=discord://... generic+https://...
+#
+# Leave WATCHTOWER_NOTIFICATION_URL unset to disable notifications entirely.
 
 services:
   api:
@@ -77,20 +94,46 @@ services:
       # Reuse host Docker credentials for ghcr.io (set up via `docker login ghcr.io`)
       - ${HOME}/.docker/config.json:/config.json:ro
     environment:
-      # Only watch containers that explicitly opt in via label
+      # ── Watching ───────────────────────────────────────────────────────────
+      # Only containers with the watchtower.enable=true label are monitored.
       WATCHTOWER_LABEL_ENABLE: "true"
-      # Check for updates every 5 minutes (300 seconds)
+      # Poll ghcr.io every 5 minutes.
       WATCHTOWER_POLL_INTERVAL: "300"
-      # Send a Slack/webhook notification on update (optional — remove if unused)
-      # WATCHTOWER_NOTIFICATION_URL: ${WATCHTOWER_NOTIFICATION_URL:-}
-      # Remove old images after updating to save disk space
+      # Remove superseded images to reclaim disk space.
       WATCHTOWER_CLEANUP: "true"
-      # Log level: info | debug | warn | error
       WATCHTOWER_LOG_LEVEL: info
-      # Run once immediately on startup to pick up any images pushed while the
-      # host was offline, then continue polling on schedule
-      WATCHTOWER_RUN_ONCE: "false"
       TZ: UTC
+
+      # ── Notifications ──────────────────────────────────────────────────────
+      # shoutrrr-formatted URL(s). Leave blank/unset to silence all alerts.
+      # See the comment block at the top of this file for URL formats.
+      WATCHTOWER_NOTIFICATION_URL: ${WATCHTOWER_NOTIFICATION_URL:-}
+
+      # Emit a single summary report after each poll cycle instead of one
+      # message per updated container (quieter for frequent deploys).
+      WATCHTOWER_NOTIFICATION_REPORT: "true"
+
+      # Only send notifications for updates and errors — skip "no update" pings.
+      WATCHTOWER_NOTIFICATIONS_LEVEL: info
+
+      # Custom Go-template message. Variables come from Watchtower's Report type.
+      # Produces a message like:
+      #   🚀 Nexus Agent updated
+      #   ✅ nexus-api   → sha256:abc1234
+      #   ✅ nexus-web   → sha256:def5678
+      #   ❌ (none failed)
+      WATCHTOWER_NOTIFICATION_TEMPLATE: |
+        {{- if .Report.Updated -}}
+        🚀 *Nexus Agent* deployed new images on `{{ .Host }}`
+        {{range .Report.Updated}}✅ `{{.Name}}` → `{{.ImageName}}`
+        {{end}}
+        {{- end -}}
+        {{- if .Report.Fresh -}}
+        ℹ️ Already up to date: {{range .Report.Fresh}}`{{.Name}}` {{end}}
+        {{- end -}}
+        {{- if .Report.Failed -}}
+        ❌ *Update failed* for: {{range .Report.Failed}}`{{.Name}}` ({{.Error}}) {{end}}
+        {{- end -}}
     logging:
       driver: json-file
       options:
