@@ -343,6 +343,49 @@ export const DeleteWebSourceParams = zod.object({
 });
 
 /**
+ * @summary Get agent settings
+ */
+export const GetSettingsResponse = zod.object({
+  id: zod.number(),
+  agentName: zod.string(),
+  persona: zod.string(),
+  defaultModel: zod.string(),
+  memoryEnabled: zod.boolean(),
+  webSearchEnabled: zod.boolean(),
+  reflectionEnabled: zod.boolean(),
+  maxContextMessages: zod.number(),
+  timezone: zod.string(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update agent settings
+ */
+export const UpdateSettingsBody = zod.object({
+  agentName: zod.string().optional(),
+  persona: zod.string().optional(),
+  defaultModel: zod.string().optional(),
+  memoryEnabled: zod.boolean().optional(),
+  webSearchEnabled: zod.boolean().optional(),
+  reflectionEnabled: zod.boolean().optional(),
+  maxContextMessages: zod.number().optional(),
+  timezone: zod.string().optional(),
+});
+
+export const UpdateSettingsResponse = zod.object({
+  id: zod.number(),
+  agentName: zod.string(),
+  persona: zod.string(),
+  defaultModel: zod.string(),
+  memoryEnabled: zod.boolean(),
+  webSearchEnabled: zod.boolean(),
+  reflectionEnabled: zod.boolean(),
+  maxContextMessages: zod.number(),
+  timezone: zod.string(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
  * @summary Semantic RAG search across memories, documents, and web sources
  */
 export const RagSearchBody = zod.object({

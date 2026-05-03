@@ -271,6 +271,30 @@ export interface ReflectionResult {
   summary: string;
 }
 
+export interface AgentSettings {
+  id: number;
+  agentName: string;
+  persona: string;
+  defaultModel: string;
+  memoryEnabled: boolean;
+  webSearchEnabled: boolean;
+  reflectionEnabled: boolean;
+  maxContextMessages: number;
+  timezone: string;
+  updatedAt: string;
+}
+
+export interface UpdateSettingsBody {
+  agentName?: string;
+  persona?: string;
+  defaultModel?: string;
+  memoryEnabled?: boolean;
+  webSearchEnabled?: boolean;
+  reflectionEnabled?: boolean;
+  maxContextMessages?: number;
+  timezone?: string;
+}
+
 export type ListMemoriesParams = {
   type?: ListMemoriesType;
   owner?: ListMemoriesOwner;

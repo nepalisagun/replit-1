@@ -24,6 +24,8 @@ tags:
     description: Web search and source verification
   - name: reflect
     description: Reflection job endpoints
+  - name: settings
+    description: Agent configuration settings
 paths:
   /healthz:
     get:
@@ -474,6 +476,36 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get agent settings
+      responses:
+        "200":
+          description: Current agent settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentSettings"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update agent settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSettingsBody"
+      responses:
+        "200":
+          description: Updated agent settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentSettings"
 
   /rag/backfill:
     post:
@@ -1019,3 +1051,59 @@ components:
         - memoriesCreated
         - memories
         - summary
+
+    AgentSettings:
+      type: object
+      properties:
+        id:
+          type: integer
+        agentName:
+          type: string
+        persona:
+          type: string
+        defaultModel:
+          type: string
+        memoryEnabled:
+          type: boolean
+        webSearchEnabled:
+          type: boolean
+        reflectionEnabled:
+          type: boolean
+        maxContextMessages:
+          type: integer
+        timezone:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - agentName
+        - persona
+        - defaultModel
+        - memoryEnabled
+        - webSearchEnabled
+        - reflectionEnabled
+        - maxContextMessages
+        - timezone
+        - updatedAt
+
+    UpdateSettingsBody:
+      type: object
+      properties:
+        agentName:
+          type: string
+        persona:
+          type: string
+        defaultModel:
+          type: string
+        memoryEnabled:
+          type: boolean
+        webSearchEnabled:
+          type: boolean
+        reflectionEnabled:
+          type: boolean
+        maxContextMessages:
+          type: integer
+        timezone:
+          type: string

@@ -12,6 +12,7 @@ import MemoriesPage from "@/pages/memories";
 import DocumentsPage from "@/pages/documents";
 import EventsPage from "@/pages/events";
 import DashboardPage from "@/pages/dashboard";
+import SettingsPage from "@/pages/settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,6 +33,7 @@ function Router() {
         <Route path="/documents" component={DocumentsPage} />
         <Route path="/events" component={EventsPage} />
         <Route path="/dashboard" component={DashboardPage} />
+        <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

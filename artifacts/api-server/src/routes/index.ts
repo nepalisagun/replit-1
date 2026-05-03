@@ -8,6 +8,7 @@ import statsRouter from "./stats";
 import reflectRouter from "./reflect";
 import searchRouter from "./search";
 import ragRouter from "./rag";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(statsRouter);
 router.use(reflectRouter);
 router.use(searchRouter);
 router.use(ragRouter);
+router.use(settingsRouter);
 
 export default router;

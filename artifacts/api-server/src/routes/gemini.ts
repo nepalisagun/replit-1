@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { conversations, messages } from "@workspace/db";
+import { conversations, messages, agentSettings } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import {
   CreateGeminiConversationBody,
@@ -134,8 +134,13 @@ router.post("/gemini/conversations/:id/messages", async (req, res) => {
     req.log.warn({ err }, "RAG retrieval failed — proceeding without context");
   }
 
+  // Load persona from settings (fall back to default if none)
+  const settingsRows = await db.select().from(agentSettings).where(eq(agentSettings.id, 1));
+  const persona = settingsRows[0]?.persona ??
+    "You are Nexus, a highly capable personal AI agent. You are precise, thoughtful, and proactive.";
+
   // Build system prompt with RAG context
-  let systemPrompt = "You are Nexus Agent, a powerful personal AI assistant. You are helpful, precise, and intelligent.";
+  let systemPrompt = persona;
 
   if (ragContext.length > 0) {
     const memCtx = ragContext.filter((r) => r.source === "memory");
