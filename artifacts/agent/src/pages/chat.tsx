@@ -712,7 +712,7 @@ export default function ChatPage() {
                       : undefined;
                     const currentReaction = reactionsMap[m.id];
                     return (
-                      <div key={m.id} className="space-y-0.5">
+                      <div key={m.id} className="space-y-0.5 group">
                         {isAssistant && ragMeta && <RagContextBadge meta={ragMeta} />}
                         <div className={`flex gap-4 ${isAssistant ? "justify-start" : "justify-end"} mb-1`}>
                           {isAssistant && (
@@ -731,6 +731,13 @@ export default function ChatPage() {
                             </div>
                           )}
                         </div>
+                        {!isAssistant && m.createdAt && m.id > 0 && (
+                          <div className="flex justify-end pr-12 mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                            <span className="text-[10px] text-muted-foreground/30 select-none">
+                              {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                        )}
                         {isAssistant && m.id > 0 && (
                           <div className="flex items-center gap-1 pl-12 mb-3">
                             {idx === lastAssistantIdx && !isStreaming && (
@@ -783,6 +790,11 @@ export default function ChatPage() {
                               <ThumbsDown className="w-3 h-3" />
                               {currentReaction === "unhelpful" && <span>Not helpful</span>}
                             </button>
+                            {m.createdAt && m.id > 0 && (
+                              <span className="ml-auto text-[10px] text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity duration-150 select-none">
+                                {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
