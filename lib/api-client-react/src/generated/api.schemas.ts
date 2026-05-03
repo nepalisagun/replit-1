@@ -21,6 +21,26 @@ export interface ReactToMessageBody {
   reaction: ReactToMessageBodyReaction;
 }
 
+export interface FeedbackDayBucket {
+  date: string;
+  helpful: number;
+  unhelpful: number;
+}
+
+export interface FeedbackConversation {
+  conversationId: number;
+  title: string;
+  helpful: number;
+  unhelpful: number;
+}
+
+export interface FeedbackStats {
+  totalHelpful: number;
+  totalUnhelpful: number;
+  last7Days: FeedbackDayBucket[];
+  topConversations: FeedbackConversation[];
+}
+
 export type MessageReactionReaction =
   (typeof MessageReactionReaction)[keyof typeof MessageReactionReaction];
 

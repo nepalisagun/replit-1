@@ -398,6 +398,29 @@ export const GetRecentActivityResponse = zod.array(
 );
 
 /**
+ * @summary Get message reaction feedback summary
+ */
+export const GetFeedbackStatsResponse = zod.object({
+  totalHelpful: zod.number(),
+  totalUnhelpful: zod.number(),
+  last7Days: zod.array(
+    zod.object({
+      date: zod.string(),
+      helpful: zod.number(),
+      unhelpful: zod.number(),
+    }),
+  ),
+  topConversations: zod.array(
+    zod.object({
+      conversationId: zod.number(),
+      title: zod.string(),
+      helpful: zod.number(),
+      unhelpful: zod.number(),
+    }),
+  ),
+});
+
+/**
  * @summary Search the web, verify across sources, and store results
  */
 export const RunWebSearchBody = zod.object({

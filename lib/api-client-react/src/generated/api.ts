@@ -25,6 +25,7 @@ import type {
   CreateMemoryBody,
   DashboardStats,
   Document,
+  FeedbackStats,
   GeminiConversation,
   GeminiConversationWithMessages,
   GeminiError,
@@ -2367,6 +2368,81 @@ export function useGetRecentActivity<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetRecentActivityQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get message reaction feedback summary
+ */
+export const getGetFeedbackStatsUrl = () => {
+  return `/api/stats/feedback`;
+};
+
+export const getFeedbackStats = async (
+  options?: RequestInit,
+): Promise<FeedbackStats> => {
+  return customFetch<FeedbackStats>(getGetFeedbackStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFeedbackStatsQueryKey = () => {
+  return [`/api/stats/feedback`] as const;
+};
+
+export const getGetFeedbackStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFeedbackStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFeedbackStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetFeedbackStatsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFeedbackStats>>
+  > = ({ signal }) => getFeedbackStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFeedbackStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFeedbackStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFeedbackStats>>
+>;
+export type GetFeedbackStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get message reaction feedback summary
+ */
+
+export function useGetFeedbackStats<
+  TData = Awaited<ReturnType<typeof getFeedbackStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFeedbackStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFeedbackStatsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -567,6 +567,19 @@ paths:
                 items:
                   $ref: "#/components/schemas/ActivityItem"
 
+  /stats/feedback:
+    get:
+      operationId: getFeedbackStats
+      tags: [stats]
+      summary: Get message reaction feedback summary
+      responses:
+        "200":
+          description: Feedback statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackStats"
+
   /search:
     post:
       operationId: runWebSearch
@@ -728,6 +741,58 @@ components:
           enum: [helpful, unhelpful]
       required:
         - reaction
+
+    FeedbackDayBucket:
+      type: object
+      properties:
+        date:
+          type: string
+        helpful:
+          type: integer
+        unhelpful:
+          type: integer
+      required:
+        - date
+        - helpful
+        - unhelpful
+
+    FeedbackConversation:
+      type: object
+      properties:
+        conversationId:
+          type: integer
+        title:
+          type: string
+        helpful:
+          type: integer
+        unhelpful:
+          type: integer
+      required:
+        - conversationId
+        - title
+        - helpful
+        - unhelpful
+
+    FeedbackStats:
+      type: object
+      properties:
+        totalHelpful:
+          type: integer
+        totalUnhelpful:
+          type: integer
+        last7Days:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedbackDayBucket"
+        topConversations:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedbackConversation"
+      required:
+        - totalHelpful
+        - totalUnhelpful
+        - last7Days
+        - topConversations
 
     MessageReaction:
       type: object

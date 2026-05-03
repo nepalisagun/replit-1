@@ -2,9 +2,10 @@ import { useState } from "react";
 import {
   useGetDashboardStats,
   useGetToolHealth,
-  useGetRecentActivity
+  useGetRecentActivity,
+  useGetFeedbackStats,
 } from "@workspace/api-client-react";
-import { MessageSquare, BrainCircuit, Database, AlertTriangle, Activity, Loader2, CheckCircle, Cpu, RefreshCw } from "lucide-react";
+import { MessageSquare, BrainCircuit, Database, AlertTriangle, Activity, Loader2, CheckCircle, Cpu, RefreshCw, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -123,6 +124,105 @@ function BackfillCard() {
   );
 }
 
+function FeedbackPanel() {
+  const { data: fb, isLoading } = useGetFeedbackStats();
+
+  const total = (fb?.totalHelpful ?? 0) + (fb?.totalUnhelpful ?? 0);
+  const helpfulPct = total > 0 ? Math.round(((fb?.totalHelpful ?? 0) / total) * 100) : 0;
+
+  const maxDay = Math.max(...(fb?.last7Days ?? []).map((d) => d.helpful + d.unhelpful), 1);
+
+  return (
+    <Card className="bg-card border-border shadow-none">
+      <CardHeader className="pb-3 border-b border-border">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <ThumbsUp className="w-4 h-4 text-primary" />
+          Response Feedback
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-4 space-y-5">
+        {isLoading ? (
+          <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+        ) : total === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-4">No reactions yet — rate assistant messages with 👍 or 👎</p>
+        ) : (
+          <>
+            {/* Totals */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5 text-green-400">
+                <ThumbsUp className="w-4 h-4" />
+                <span className="text-xl font-bold">{fb?.totalHelpful ?? 0}</span>
+                <span className="text-xs text-muted-foreground">helpful</span>
+              </div>
+              <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-green-500 rounded-full transition-all"
+                  style={{ width: `${helpfulPct}%` }}
+                />
+              </div>
+              <div className="flex items-center gap-1.5 text-red-400">
+                <span className="text-xl font-bold">{fb?.totalUnhelpful ?? 0}</span>
+                <ThumbsDown className="w-4 h-4" />
+                <span className="text-xs text-muted-foreground">not helpful</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              {helpfulPct}% satisfaction rate across {total} rated {total === 1 ? "response" : "responses"}
+            </p>
+
+            {/* 7-day bar chart */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Last 7 days</p>
+              <div className="flex items-end gap-1 h-16">
+                {(fb?.last7Days ?? []).map((d) => {
+                  const dayTotal = d.helpful + d.unhelpful;
+                  const heightPct = dayTotal > 0 ? Math.round((dayTotal / maxDay) * 100) : 0;
+                  const hPct = dayTotal > 0 ? Math.round((d.helpful / dayTotal) * 100) : 0;
+                  const label = new Date(d.date + "T12:00:00").toLocaleDateString([], { weekday: "short" });
+                  return (
+                    <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
+                      <div
+                        className="w-full rounded-sm overflow-hidden flex flex-col-reverse"
+                        style={{ height: `${heightPct}%`, minHeight: dayTotal > 0 ? "4px" : "0" }}
+                        title={`${d.date}: ${d.helpful} helpful, ${d.unhelpful} not helpful`}
+                      >
+                        <div className="bg-green-500" style={{ height: `${hPct}%` }} />
+                        <div className="bg-red-500" style={{ height: `${100 - hPct}%` }} />
+                      </div>
+                      <span className="text-[9px] text-muted-foreground">{label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Top conversations */}
+            {(fb?.topConversations ?? []).length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Top rated conversations</p>
+                <div className="space-y-1.5">
+                  {(fb?.topConversations ?? []).slice(0, 5).map((c) => {
+                    const cTotal = c.helpful + c.unhelpful;
+                    const cPct = cTotal > 0 ? Math.round((c.helpful / cTotal) * 100) : 0;
+                    return (
+                      <div key={c.conversationId} className="flex items-center gap-2 text-xs">
+                        <span className="truncate flex-1 text-muted-foreground">{c.title}</span>
+                        <span className="text-green-400 shrink-0">{c.helpful}👍</span>
+                        <span className="text-red-400 shrink-0">{c.unhelpful}👎</span>
+                        <span className="text-muted-foreground shrink-0 w-8 text-right">{cPct}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function DashboardPage() {
   const { data: stats, isLoading: loadingStats } = useGetDashboardStats();
   const { data: toolHealth = [], isLoading: loadingHealth } = useGetToolHealth();
@@ -195,7 +295,7 @@ export default function DashboardPage() {
                   <div className="flex justify-between items-start">
                     <span className="font-medium text-sm">{act.type}</span>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(act.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {new Date(act.createdAt as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">{act.description}</p>
@@ -207,6 +307,7 @@ export default function DashboardPage() {
         </Card>
 
         <BackfillCard />
+        <FeedbackPanel />
       </div>
     </div>
   );
