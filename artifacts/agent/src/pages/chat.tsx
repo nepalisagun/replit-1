@@ -3,10 +3,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Send, Plus, Bot, User, Loader2, Trash2, BrainCircuit,
   FileText, Globe, Pin, PinOff, Archive, ArchiveRestore, ChevronDown, ChevronRight,
-  Pencil, Check, X, Search, MessageSquare
+  Pencil, Check, X, Search, MessageSquare, Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   useListGeminiConversations,
   useCreateGeminiConversation,
@@ -44,6 +50,38 @@ function RagContextBadge({ meta }: { meta: RagMeta }) {
 }
 
 type Convo = { id: number; title: string; pinned: boolean; archived: boolean; createdAt: string };
+
+type MsgRow = { id: number; conversationId: number; role: string; content: string; createdAt: string };
+
+function exportConversation(title: string, msgs: MsgRow[], format: "md" | "txt") {
+  const date = new Date().toISOString().slice(0, 10);
+  const safeName = title.replace(/[^a-z0-9_\-]/gi, "_").slice(0, 60);
+
+  let content: string;
+  if (format === "md") {
+    const lines = [`# ${title}`, `*Exported ${date}*`, ""];
+    for (const m of msgs) {
+      const role = m.role === "assistant" || m.role === "model" ? "**Assistant**" : "**You**";
+      lines.push(`${role}\n\n${m.content}`, "---", "");
+    }
+    content = lines.join("\n");
+  } else {
+    const lines = [title, `Exported ${date}`, "=".repeat(40), ""];
+    for (const m of msgs) {
+      const role = m.role === "assistant" || m.role === "model" ? "ASSISTANT" : "YOU";
+      lines.push(`[${role}]`, m.content, "", "-".repeat(40), "");
+    }
+    content = lines.join("\n");
+  }
+
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${safeName}_${date}.${format === "md" ? "md" : "txt"}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 function highlightMatch(text: string, query: string) {
   if (!query) return <>{text}</>;
@@ -448,6 +486,7 @@ export default function ChatPage() {
             {/* Header */}
             {activeConvo && (() => {
               const convoMeta = typedConvos.find((c) => c.id === activeConvo.id);
+              const typedMessages = messages as MsgRow[];
               return (
                 <div className="h-12 px-4 border-b border-border flex items-center justify-between shrink-0">
                   <span className="text-sm font-medium truncate">{activeConvo.title}</span>
@@ -460,6 +499,34 @@ export default function ChatPage() {
                       onClick={(e) => handleArchive(activeConvo.id, e)} title={convoMeta?.archived ? "Unarchive" : "Archive"}>
                       {convoMeta?.archived ? <ArchiveRestore className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
                     </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost" size="icon"
+                          className="w-7 h-7 text-muted-foreground hover:text-foreground"
+                          disabled={typedMessages.length === 0}
+                          title="Export conversation"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem
+                          onClick={() => exportConversation(activeConvo.title, typedMessages, "md")}
+                          className="gap-2 cursor-pointer"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          Export as Markdown
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => exportConversation(activeConvo.title, typedMessages, "txt")}
+                          className="gap-2 cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Export as Plain Text
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               );
