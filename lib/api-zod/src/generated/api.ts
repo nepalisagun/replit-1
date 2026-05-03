@@ -343,6 +343,35 @@ export const DeleteWebSourceParams = zod.object({
 });
 
 /**
+ * @summary Semantic RAG search across memories, documents, and web sources
+ */
+export const RagSearchBody = zod.object({
+  query: zod.string().describe("The search query for semantic retrieval"),
+  limit: zod
+    .number()
+    .optional()
+    .describe("Maximum number of results to return (default 10)"),
+  threshold: zod
+    .number()
+    .optional()
+    .describe("Minimum cosine similarity threshold (default 0.45)"),
+});
+
+export const RagSearchResponse = zod.object({
+  query: zod.string(),
+  results: zod.array(
+    zod.object({
+      id: zod.number(),
+      source: zod.enum(["memory", "document", "web_source"]),
+      content: zod.string(),
+      title: zod.string().optional(),
+      similarity: zod.number(),
+      metadata: zod.object({}).passthrough(),
+    }),
+  ),
+});
+
+/**
  * @summary Run a reflection job over recent conversations to extract memories
  */
 export const RunReflectionBody = zod.object({

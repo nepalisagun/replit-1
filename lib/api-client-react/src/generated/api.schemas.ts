@@ -168,6 +168,40 @@ export interface ActivityItem {
   createdAt?: string;
 }
 
+export interface RagSearchBody {
+  /** The search query for semantic retrieval */
+  query: string;
+  /** Maximum number of results to return (default 10) */
+  limit?: number;
+  /** Minimum cosine similarity threshold (default 0.45) */
+  threshold?: number;
+}
+
+export type RagResultSource =
+  (typeof RagResultSource)[keyof typeof RagResultSource];
+
+export const RagResultSource = {
+  memory: "memory",
+  document: "document",
+  web_source: "web_source",
+} as const;
+
+export type RagResultMetadata = { [key: string]: unknown };
+
+export interface RagResult {
+  id: number;
+  source: RagResultSource;
+  content: string;
+  title?: string;
+  similarity: number;
+  metadata: RagResultMetadata;
+}
+
+export interface RagSearchResponse {
+  query: string;
+  results: RagResult[];
+}
+
 export interface WebSearchBody {
   /** The search query */
   query: string;

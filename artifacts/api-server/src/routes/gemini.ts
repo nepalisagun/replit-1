@@ -13,6 +13,7 @@ import {
 } from "@workspace/api-zod";
 import { ai } from "@workspace/integrations-gemini-ai";
 import { generateImage } from "@workspace/integrations-gemini-ai/image";
+import { retrieveContext } from "./rag";
 
 const router = Router();
 
@@ -125,19 +126,90 @@ router.post("/gemini/conversations/:id/messages", async (req, res) => {
     .where(eq(messages.conversationId, conversationId))
     .orderBy(messages.createdAt);
 
+  // Retrieve semantic context via RAG
+  let ragContext: Awaited<ReturnType<typeof retrieveContext>> = [];
+  try {
+    ragContext = await retrieveContext(body.data.content, { limit: 5, threshold: 0.45 });
+  } catch (err) {
+    req.log.warn({ err }, "RAG retrieval failed — proceeding without context");
+  }
+
+  // Build system prompt with RAG context
+  let systemPrompt = "You are Nexus Agent, a powerful personal AI assistant. You are helpful, precise, and intelligent.";
+
+  if (ragContext.length > 0) {
+    const memCtx = ragContext.filter((r) => r.source === "memory");
+    const docCtx = ragContext.filter((r) => r.source === "document");
+    const webCtx = ragContext.filter((r) => r.source === "web_source");
+
+    const sections: string[] = [];
+
+    if (memCtx.length > 0) {
+      sections.push(
+        `RELEVANT MEMORIES (similarity-ranked):\n${memCtx
+          .map((m) => `- [${m.metadata.type}] ${m.content} (importance: ${m.metadata.importanceScore})`)
+          .join("\n")}`
+      );
+    }
+    if (docCtx.length > 0) {
+      sections.push(
+        `RELEVANT KNOWLEDGE BASE DOCUMENTS:\n${docCtx
+          .map((d) => `- ${d.title}: ${d.content.slice(0, 400)}`)
+          .join("\n")}`
+      );
+    }
+    if (webCtx.length > 0) {
+      sections.push(
+        `RELEVANT VERIFIED WEB SOURCES:\n${webCtx
+          .map((w) => `- ${w.title} (trust ${((w.metadata.trustScore as number) * 100).toFixed(0)}%): ${w.content.slice(0, 300)}`)
+          .join("\n")}`
+      );
+    }
+
+    if (sections.length > 0) {
+      systemPrompt += `\n\nUse the following context from your knowledge base when relevant to the user's question. Do not mention that you are reading from a context block — use it naturally:\n\n${sections.join("\n\n")}`;
+    }
+  }
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
+  // Send RAG metadata first so the client can show the context indicator
+  if (ragContext.length > 0) {
+    const ragMeta = {
+      ragContext: {
+        memoriesUsed: ragContext.filter((r) => r.source === "memory").length,
+        documentsUsed: ragContext.filter((r) => r.source === "document").length,
+        webSourcesUsed: ragContext.filter((r) => r.source === "web_source").length,
+        total: ragContext.length,
+      },
+    };
+    res.write(`data: ${JSON.stringify(ragMeta)}\n\n`);
+  }
+
   let fullResponse = "";
 
   try {
-    const stream = await ai.models.generateContentStream({
-      model: "gemini-2.5-flash",
-      contents: chatHistory.map((m) => ({
-        role: m.role === "assistant" ? "model" : (m.role as "user" | "model"),
+    // Prepend system prompt as the first user/model exchange
+    const geminiContents = [
+      {
+        role: "user" as const,
+        parts: [{ text: systemPrompt }],
+      },
+      {
+        role: "model" as const,
+        parts: [{ text: "Understood. I will use the provided context to assist you accurately." }],
+      },
+      ...chatHistory.map((m) => ({
+        role: m.role === "assistant" ? ("model" as const) : ("user" as const),
         parts: [{ text: m.content }],
       })),
+    ];
+
+    const stream = await ai.models.generateContentStream({
+      model: "gemini-2.5-flash",
+      contents: geminiContents,
       config: { maxOutputTokens: 8192 },
     });
 

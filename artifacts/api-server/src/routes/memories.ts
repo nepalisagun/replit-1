@@ -9,6 +9,7 @@ import {
   UpdateMemoryBody,
   DeleteMemoryParams,
 } from "@workspace/api-zod";
+import { getEmbedding } from "../lib/embeddings";
 
 const router = Router();
 
@@ -46,6 +47,14 @@ router.post("/memories", async (req, res) => {
     res.status(400).json({ error: "Invalid request body" });
     return;
   }
+
+  let embedding: number[] | null = null;
+  try {
+    embedding = await getEmbedding(parsed.data.content);
+  } catch (err) {
+    req.log.warn({ err }, "Embedding generation failed for memory — storing without vector");
+  }
+
   const [memory] = await db
     .insert(memories)
     .values({
@@ -54,6 +63,7 @@ router.post("/memories", async (req, res) => {
       content: parsed.data.content,
       importanceScore: parsed.data.importanceScore,
       category: parsed.data.category ?? null,
+      ...(embedding ? { embedding } : {}),
     })
     .returning();
   res.status(201).json({
@@ -75,7 +85,14 @@ router.put("/memories/:id", async (req, res) => {
     return;
   }
   const updates: Partial<typeof memories.$inferInsert> = {};
-  if (body.data.content !== undefined) updates.content = body.data.content;
+  if (body.data.content !== undefined) {
+    updates.content = body.data.content;
+    try {
+      updates.embedding = await getEmbedding(body.data.content);
+    } catch {
+      // store without updating embedding
+    }
+  }
   if (body.data.importanceScore !== undefined) updates.importanceScore = body.data.importanceScore;
   if (body.data.category !== undefined) updates.category = body.data.category;
 

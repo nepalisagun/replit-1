@@ -36,6 +36,8 @@ import type {
   ListMemoriesParams,
   ListWebSourcesParams,
   Memory,
+  RagSearchBody,
+  RagSearchResponse,
   ReflectionResult,
   RunReflectionBody,
   SendGeminiMessageBody,
@@ -2012,6 +2014,92 @@ export const useDeleteWebSource = <
   TContext
 > => {
   return useMutation(getDeleteWebSourceMutationOptions(options));
+};
+
+/**
+ * @summary Semantic RAG search across memories, documents, and web sources
+ */
+export const getRagSearchUrl = () => {
+  return `/api/rag/search`;
+};
+
+export const ragSearch = async (
+  ragSearchBody: RagSearchBody,
+  options?: RequestInit,
+): Promise<RagSearchResponse> => {
+  return customFetch<RagSearchResponse>(getRagSearchUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(ragSearchBody),
+  });
+};
+
+export const getRagSearchMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ragSearch>>,
+    TError,
+    { data: BodyType<RagSearchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof ragSearch>>,
+  TError,
+  { data: BodyType<RagSearchBody> },
+  TContext
+> => {
+  const mutationKey = ["ragSearch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof ragSearch>>,
+    { data: BodyType<RagSearchBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return ragSearch(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RagSearchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof ragSearch>>
+>;
+export type RagSearchMutationBody = BodyType<RagSearchBody>;
+export type RagSearchMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Semantic RAG search across memories, documents, and web sources
+ */
+export const useRagSearch = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ragSearch>>,
+    TError,
+    { data: BodyType<RagSearchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof ragSearch>>,
+  TError,
+  { data: BodyType<RagSearchBody> },
+  TContext
+> => {
+  return useMutation(getRagSearchMutationOptions(options));
 };
 
 /**

@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { webSources, documents, agentEvents } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import { ai } from "@workspace/integrations-gemini-ai";
+import { getEmbedding } from "../lib/embeddings";
 
 const router = Router();
 
@@ -214,6 +215,14 @@ Return ONLY valid JSON.`,
     return { ...s, trustScore: Math.min(1.0, finalTrust) };
   });
 
+  // Generate embedding for the query
+  let queryEmbedding: number[] | null = null;
+  try {
+    queryEmbedding = await getEmbedding(trimmedQuery);
+  } catch (err) {
+    req.log.warn({ err }, "Embedding generation failed for search query");
+  }
+
   const insertedSources = await db
     .insert(webSources)
     .values(
@@ -225,6 +234,7 @@ Return ONLY valid JSON.`,
         normalizedSummary: verificationData.consolidatedSummary,
         trustScore: s.trustScore,
         verificationStatus: verificationData.verificationStatus,
+        ...(queryEmbedding ? { embedding: queryEmbedding } : {}),
       }))
     )
     .returning();
@@ -232,12 +242,20 @@ Return ONLY valid JSON.`,
   // Step 5: If verified, also store as a document for RAG
   let savedToDocuments = false;
   if (verificationData.verificationStatus === "verified") {
+    const docContent = `Query: ${trimmedQuery}\n\nVerified Summary:\n${verificationData.consolidatedSummary}\n\nSources:\n${sourcesToStore.map((s) => `- ${s.url} (trust: ${s.trustScore.toFixed(2)})`).join("\n")}`;
+    let docEmbedding: number[] | null = null;
+    try {
+      docEmbedding = await getEmbedding(`${trimmedQuery}\n${verificationData.consolidatedSummary}`);
+    } catch {
+      // store without embedding
+    }
     await db.insert(documents).values({
       title: `Web Search: ${trimmedQuery}`,
       source: "web_verified",
       url: sourcesToStore[0]?.url ?? null,
       canonicalCategory: "general",
-      content: `Query: ${trimmedQuery}\n\nVerified Summary:\n${verificationData.consolidatedSummary}\n\nSources:\n${sourcesToStore.map((s) => `- ${s.url} (trust: ${s.trustScore.toFixed(2)})`).join("\n")}`,
+      content: docContent,
+      ...(docEmbedding ? { embedding: docEmbedding } : {}),
     });
     savedToDocuments = true;
   }

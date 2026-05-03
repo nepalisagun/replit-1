@@ -5,3 +5,4 @@ export * from "./documents";
 export * from "./agentEvents";
 export * from "./toolHealth";
 export * from "./webSources";
+export * from "./vectorType";

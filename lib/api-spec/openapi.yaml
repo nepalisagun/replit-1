@@ -475,6 +475,25 @@ paths:
         "204":
           description: Deleted
 
+  /rag/search:
+    post:
+      operationId: ragSearch
+      tags: [search]
+      summary: Semantic RAG search across memories, documents, and web sources
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RagSearchBody"
+      responses:
+        "200":
+          description: Ranked semantic search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RagSearchResponse"
+
   /reflect:
     post:
       operationId: runReflection
@@ -791,6 +810,57 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    RagSearchBody:
+      type: object
+      properties:
+        query:
+          type: string
+          description: The search query for semantic retrieval
+        limit:
+          type: integer
+          description: Maximum number of results to return (default 10)
+        threshold:
+          type: number
+          description: Minimum cosine similarity threshold (default 0.45)
+      required:
+        - query
+
+    RagResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        source:
+          type: string
+          enum: [memory, document, web_source]
+        content:
+          type: string
+        title:
+          type: string
+        similarity:
+          type: number
+        metadata:
+          type: object
+      required:
+        - id
+        - source
+        - content
+        - similarity
+        - metadata
+
+    RagSearchResponse:
+      type: object
+      properties:
+        query:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/RagResult"
+      required:
+        - query
+        - results
 
     WebSearchBody:
       type: object

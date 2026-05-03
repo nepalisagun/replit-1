@@ -8,6 +8,7 @@ import {
   GetDocumentParams,
   DeleteDocumentParams,
 } from "@workspace/api-zod";
+import { getEmbedding } from "../lib/embeddings";
 
 const router = Router();
 
@@ -43,6 +44,15 @@ router.post("/documents", async (req, res) => {
     res.status(400).json({ error: "Invalid request body" });
     return;
   }
+
+  let embedding: number[] | null = null;
+  try {
+    const textToEmbed = `${parsed.data.title}\n${parsed.data.content}`.slice(0, 512);
+    embedding = await getEmbedding(textToEmbed);
+  } catch (err) {
+    req.log.warn({ err }, "Embedding generation failed for document — storing without vector");
+  }
+
   const [doc] = await db
     .insert(documents)
     .values({
@@ -51,6 +61,7 @@ router.post("/documents", async (req, res) => {
       url: parsed.data.url ?? null,
       canonicalCategory: parsed.data.canonicalCategory ?? null,
       content: parsed.data.content,
+      ...(embedding ? { embedding } : {}),
     })
     .returning();
   res.status(201).json({
