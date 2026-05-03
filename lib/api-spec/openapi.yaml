@@ -20,6 +20,8 @@ tags:
     description: Agent event logs
   - name: stats
     description: Agent statistics and dashboard
+  - name: search
+    description: Web search and source verification
   - name: reflect
     description: Reflection job endpoints
 paths:
@@ -411,6 +413,68 @@ paths:
                 items:
                   $ref: "#/components/schemas/ActivityItem"
 
+  /search:
+    post:
+      operationId: runWebSearch
+      tags: [search]
+      summary: Search the web, verify across sources, and store results
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebSearchBody"
+      responses:
+        "200":
+          description: Verified search result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebSearchResult"
+
+  /web-sources:
+    get:
+      operationId: listWebSources
+      tags: [search]
+      summary: List stored web sources
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, verified, uncertain, conflicted]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of web sources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebSource"
+
+  /web-sources/{id}:
+    delete:
+      operationId: deleteWebSource
+      tags: [search]
+      summary: Delete a stored web source
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /reflect:
     post:
       operationId: runReflection
@@ -727,6 +791,96 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    WebSearchBody:
+      type: object
+      properties:
+        query:
+          type: string
+          description: The search query
+        minSources:
+          type: integer
+          description: Minimum sources required to verify a claim (default 2)
+      required:
+        - query
+
+    WebSourceItem:
+      type: object
+      properties:
+        url:
+          type: string
+        title:
+          type: string
+        snippet:
+          type: string
+        trustScore:
+          type: number
+        verificationStatus:
+          type: string
+      required:
+        - url
+        - title
+        - snippet
+        - trustScore
+        - verificationStatus
+
+    WebSearchResult:
+      type: object
+      properties:
+        query:
+          type: string
+        verificationStatus:
+          type: string
+          enum: [verified, uncertain, conflicted]
+        consolidatedSummary:
+          type: string
+        sourcesChecked:
+          type: integer
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebSourceItem"
+        savedToDocuments:
+          type: boolean
+      required:
+        - query
+        - verificationStatus
+        - consolidatedSummary
+        - sourcesChecked
+        - sources
+        - savedToDocuments
+
+    WebSource:
+      type: object
+      properties:
+        id:
+          type: integer
+        query:
+          type: string
+        url:
+          type: string
+        title:
+          type: string
+        snippet:
+          type: string
+        normalizedSummary:
+          type: string
+        trustScore:
+          type: number
+        verificationStatus:
+          type: string
+        lastCheckedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - query
+        - url
+        - title
+        - snippet
+        - trustScore
+        - verificationStatus
+        - lastCheckedAt
 
     RunReflectionBody:
       type: object

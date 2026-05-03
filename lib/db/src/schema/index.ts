@@ -4,3 +4,4 @@ export * from "./memories";
 export * from "./documents";
 export * from "./agentEvents";
 export * from "./toolHealth";
+export * from "./webSources";

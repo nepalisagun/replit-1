@@ -6,6 +6,7 @@ import documentsRouter from "./documents";
 import eventsRouter from "./events";
 import statsRouter from "./stats";
 import reflectRouter from "./reflect";
+import searchRouter from "./search";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(documentsRouter);
 router.use(eventsRouter);
 router.use(statsRouter);
 router.use(reflectRouter);
+router.use(searchRouter);
 
 export default router;

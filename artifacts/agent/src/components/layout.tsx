@@ -1,11 +1,12 @@
 import { Link, useLocation } from "wouter";
-import { Activity, BrainCircuit, Database, MessageSquare, LayoutDashboard } from "lucide-react";
+import { Activity, BrainCircuit, Database, MessageSquare, LayoutDashboard, Globe } from "lucide-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
 
   const navItems = [
     { href: "/", label: "Chat", icon: MessageSquare },
+    { href: "/search", label: "Search", icon: Globe },
     { href: "/memories", label: "Memories", icon: BrainCircuit },
     { href: "/documents", label: "Documents", icon: Database },
     { href: "/events", label: "Events", icon: Activity },

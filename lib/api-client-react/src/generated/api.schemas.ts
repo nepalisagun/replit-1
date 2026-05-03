@@ -168,6 +168,51 @@ export interface ActivityItem {
   createdAt?: string;
 }
 
+export interface WebSearchBody {
+  /** The search query */
+  query: string;
+  /** Minimum sources required to verify a claim (default 2) */
+  minSources?: number;
+}
+
+export interface WebSourceItem {
+  url: string;
+  title: string;
+  snippet: string;
+  trustScore: number;
+  verificationStatus: string;
+}
+
+export type WebSearchResultVerificationStatus =
+  (typeof WebSearchResultVerificationStatus)[keyof typeof WebSearchResultVerificationStatus];
+
+export const WebSearchResultVerificationStatus = {
+  verified: "verified",
+  uncertain: "uncertain",
+  conflicted: "conflicted",
+} as const;
+
+export interface WebSearchResult {
+  query: string;
+  verificationStatus: WebSearchResultVerificationStatus;
+  consolidatedSummary: string;
+  sourcesChecked: number;
+  sources: WebSourceItem[];
+  savedToDocuments: boolean;
+}
+
+export interface WebSource {
+  id: number;
+  query: string;
+  url: string;
+  title: string;
+  snippet: string;
+  normalizedSummary?: string;
+  trustScore: number;
+  verificationStatus: string;
+  lastCheckedAt: string;
+}
+
 export interface RunReflectionBody {
   /** How many hours of messages to look back on (default 24) */
   lookbackHours?: number;
@@ -243,4 +288,19 @@ export const ListAgentEventsStatus = {
   error: "error",
   retrying: "retrying",
   degraded: "degraded",
+} as const;
+
+export type ListWebSourcesParams = {
+  status?: ListWebSourcesStatus;
+  limit?: number;
+};
+
+export type ListWebSourcesStatus =
+  (typeof ListWebSourcesStatus)[keyof typeof ListWebSourcesStatus];
+
+export const ListWebSourcesStatus = {
+  pending: "pending",
+  verified: "verified",
+  uncertain: "uncertain",
+  conflicted: "conflicted",
 } as const;

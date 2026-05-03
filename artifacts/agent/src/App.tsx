@@ -7,6 +7,7 @@ import { Layout } from "@/components/layout";
 import NotFound from "@/pages/not-found";
 
 import ChatPage from "@/pages/chat";
+import SearchPage from "@/pages/search";
 import MemoriesPage from "@/pages/memories";
 import DocumentsPage from "@/pages/documents";
 import EventsPage from "@/pages/events";
@@ -26,6 +27,7 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={ChatPage} />
+        <Route path="/search" component={SearchPage} />
         <Route path="/memories" component={MemoriesPage} />
         <Route path="/documents" component={DocumentsPage} />
         <Route path="/events" component={EventsPage} />

@@ -283,6 +283,66 @@ export const GetRecentActivityResponse = zod.array(
 );
 
 /**
+ * @summary Search the web, verify across sources, and store results
+ */
+export const RunWebSearchBody = zod.object({
+  query: zod.string().describe("The search query"),
+  minSources: zod
+    .number()
+    .optional()
+    .describe("Minimum sources required to verify a claim (default 2)"),
+});
+
+export const RunWebSearchResponse = zod.object({
+  query: zod.string(),
+  verificationStatus: zod.enum(["verified", "uncertain", "conflicted"]),
+  consolidatedSummary: zod.string(),
+  sourcesChecked: zod.number(),
+  sources: zod.array(
+    zod.object({
+      url: zod.string(),
+      title: zod.string(),
+      snippet: zod.string(),
+      trustScore: zod.number(),
+      verificationStatus: zod.string(),
+    }),
+  ),
+  savedToDocuments: zod.boolean(),
+});
+
+/**
+ * @summary List stored web sources
+ */
+export const listWebSourcesQueryLimitDefault = 50;
+
+export const ListWebSourcesQueryParams = zod.object({
+  status: zod
+    .enum(["pending", "verified", "uncertain", "conflicted"])
+    .optional(),
+  limit: zod.coerce.number().default(listWebSourcesQueryLimitDefault),
+});
+
+export const ListWebSourcesResponseItem = zod.object({
+  id: zod.number(),
+  query: zod.string(),
+  url: zod.string(),
+  title: zod.string(),
+  snippet: zod.string(),
+  normalizedSummary: zod.string().optional(),
+  trustScore: zod.number(),
+  verificationStatus: zod.string(),
+  lastCheckedAt: zod.coerce.date(),
+});
+export const ListWebSourcesResponse = zod.array(ListWebSourcesResponseItem);
+
+/**
+ * @summary Delete a stored web source
+ */
+export const DeleteWebSourceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary Run a reflection job over recent conversations to extract memories
  */
 export const RunReflectionBody = zod.object({

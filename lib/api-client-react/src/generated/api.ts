@@ -34,12 +34,16 @@ import type {
   ListAgentEventsParams,
   ListDocumentsParams,
   ListMemoriesParams,
+  ListWebSourcesParams,
   Memory,
   ReflectionResult,
   RunReflectionBody,
   SendGeminiMessageBody,
   ToolHealth,
   UpdateMemoryBody,
+  WebSearchBody,
+  WebSearchResult,
+  WebSource,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1745,6 +1749,270 @@ export function useGetRecentActivity<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Search the web, verify across sources, and store results
+ */
+export const getRunWebSearchUrl = () => {
+  return `/api/search`;
+};
+
+export const runWebSearch = async (
+  webSearchBody: WebSearchBody,
+  options?: RequestInit,
+): Promise<WebSearchResult> => {
+  return customFetch<WebSearchResult>(getRunWebSearchUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(webSearchBody),
+  });
+};
+
+export const getRunWebSearchMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runWebSearch>>,
+    TError,
+    { data: BodyType<WebSearchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof runWebSearch>>,
+  TError,
+  { data: BodyType<WebSearchBody> },
+  TContext
+> => {
+  const mutationKey = ["runWebSearch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof runWebSearch>>,
+    { data: BodyType<WebSearchBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return runWebSearch(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RunWebSearchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof runWebSearch>>
+>;
+export type RunWebSearchMutationBody = BodyType<WebSearchBody>;
+export type RunWebSearchMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Search the web, verify across sources, and store results
+ */
+export const useRunWebSearch = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runWebSearch>>,
+    TError,
+    { data: BodyType<WebSearchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof runWebSearch>>,
+  TError,
+  { data: BodyType<WebSearchBody> },
+  TContext
+> => {
+  return useMutation(getRunWebSearchMutationOptions(options));
+};
+
+/**
+ * @summary List stored web sources
+ */
+export const getListWebSourcesUrl = (params?: ListWebSourcesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/web-sources?${stringifiedParams}`
+    : `/api/web-sources`;
+};
+
+export const listWebSources = async (
+  params?: ListWebSourcesParams,
+  options?: RequestInit,
+): Promise<WebSource[]> => {
+  return customFetch<WebSource[]>(getListWebSourcesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListWebSourcesQueryKey = (params?: ListWebSourcesParams) => {
+  return [`/api/web-sources`, ...(params ? [params] : [])] as const;
+};
+
+export const getListWebSourcesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWebSources>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListWebSourcesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWebSources>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListWebSourcesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listWebSources>>> = ({
+    signal,
+  }) => listWebSources(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listWebSources>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListWebSourcesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listWebSources>>
+>;
+export type ListWebSourcesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List stored web sources
+ */
+
+export function useListWebSources<
+  TData = Awaited<ReturnType<typeof listWebSources>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListWebSourcesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWebSources>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListWebSourcesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Delete a stored web source
+ */
+export const getDeleteWebSourceUrl = (id: number) => {
+  return `/api/web-sources/${id}`;
+};
+
+export const deleteWebSource = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteWebSourceUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteWebSourceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWebSource>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteWebSource>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteWebSource"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteWebSource>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteWebSource(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteWebSourceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteWebSource>>
+>;
+
+export type DeleteWebSourceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a stored web source
+ */
+export const useDeleteWebSource = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWebSource>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteWebSource>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteWebSourceMutationOptions(options));
+};
 
 /**
  * @summary Run a reflection job over recent conversations to extract memories
