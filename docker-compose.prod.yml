@@ -1,0 +1,102 @@
+# docker-compose.prod.yml — production overrides
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# What this file adds on top of docker-compose.yml:
+#   • Pulls pre-built images from ghcr.io instead of building locally
+#   • Watchtower — polls ghcr.io every 5 minutes and hot-swaps containers
+#     when a new image is published (zero-touch continuous deployment)
+#   • Resource limits and restart policies tuned for production
+#   • Structured JSON logging for both services
+
+services:
+  api:
+    # Replace the local build with the published image.
+    # Pin to a specific version in production; use :latest for auto-updates.
+    image: ghcr.io/${GITHUB_REPOSITORY:-nepalisagun/replit-1}/nexus-api:${RELEASE_TAG:-latest}
+    build: !reset null
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
+    # Healthcheck so Watchtower and Docker know when the container is ready
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:$$PORT/api/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+
+  web:
+    image: ghcr.io/${GITHUB_REPOSITORY:-nepalisagun/replit-1}/nexus-web:${RELEASE_TAG:-latest}
+    build: !reset null
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 64M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+
+  # ── Watchtower ─────────────────────────────────────────────────────────────
+  # Watches all running containers that have the
+  # "com.centurylinklabs.watchtower.enable=true" label, pulls updated images
+  # from ghcr.io, and recreates the containers with zero manual intervention.
+  #
+  # Authentication: mount ~/.docker/config.json (created by `docker login`)
+  # or set REPO_USER / REPO_PASS env vars (see watchtower docs).
+  watchtower:
+    image: containrrr/watchtower:latest
+    restart: always
+    volumes:
+      # Gives Watchtower access to the Docker socket so it can manage containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Reuse host Docker credentials for ghcr.io (set up via `docker login ghcr.io`)
+      - ${HOME}/.docker/config.json:/config.json:ro
+    environment:
+      # Only watch containers that explicitly opt in via label
+      WATCHTOWER_LABEL_ENABLE: "true"
+      # Check for updates every 5 minutes (300 seconds)
+      WATCHTOWER_POLL_INTERVAL: "300"
+      # Send a Slack/webhook notification on update (optional — remove if unused)
+      # WATCHTOWER_NOTIFICATION_URL: ${WATCHTOWER_NOTIFICATION_URL:-}
+      # Remove old images after updating to save disk space
+      WATCHTOWER_CLEANUP: "true"
+      # Log level: info | debug | warn | error
+      WATCHTOWER_LOG_LEVEL: info
+      # Run once immediately on startup to pick up any images pushed while the
+      # host was offline, then continue polling on schedule
+      WATCHTOWER_RUN_ONCE: "false"
+      TZ: UTC
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    labels:
+      # Watchtower watches itself too — keeps it up to date automatically
+      com.centurylinklabs.watchtower.enable: "true"
+
