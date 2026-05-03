@@ -1,0 +1,247 @@
+Updating the design with Postgres + vector DB, categorical context storage, web access, and stricter self‑healing / “verified info only”.
+
+***
+
+## 1. Data layer: Postgres + vectors + canonical structure
+
+### Postgres as the main DB
+
+Use **PostgreSQL as your single source of truth**, extended with **pgvector** so it also acts as your vector DB. [github](https://github.com/pgvector/pgvector)
+
+- Install Postgres locally.
+- Install `pgvector` extension so you can store embeddings and do similarity search in SQL. [encore](https://encore.dev/blog/you-probably-dont-need-a-vector-database)
+- This avoids a separate vector database and keeps everything transactional and consistent. [yugabyte](https://www.yugabyte.com/key-concepts/using-postgresql-as-a-vector-database/)
+
+### Canonical schema and categories
+
+Design a **canonical schema** so every piece of context has a clear type and place:
+
+- `users`
+  - Your profile, preferences, tech stack, etc.
+- `sessions`
+  - Chat sessions with timestamps and metadata.
+- `messages`
+  - Each message with:
+    - `session_id`
+    - `role` (`user` / `assistant` / `tool`)
+    - `content`
+    - `category` (e.g., `coding`, `ml`, `devops`, `planning`, `reflection`)
+- `documents`
+  - Long‑form content: files, code summaries, notes, web articles.
+  - Columns: `id`, `title`, `source` (`local`, `web`), `url` (if web), `canonical_category`.
+- `memories`
+  - Short distilled “knowledge bits” the agent writes for itself and about you.
+  - Columns: `id`, `owner` (`agent` / `user`), `type` (`preference`, `fact`, `workflow`, `lesson`), `content`, `importance_score`.
+- `web_sources`
+  - Stores web results that passed verification:
+    - `url`, `title`, `snippet`, `summary`, `trust_score`, `last_checked_at`.
+
+### Vector columns with pgvector
+
+Add vector columns (using pgvector) where semantic search matters: [cloud.google](https://cloud.google.com/discover/what-is-pgvector)
+
+- `messages.embedding vector`
+- `documents.embedding vector`
+- `memories.embedding vector`
+- `web_sources.embedding vector`
+
+This lets the agent do **RAG** purely inside Postgres (e.g., `ORDER BY embedding <=> :query_embedding LIMIT 10`). [encore](https://encore.dev/blog/you-probably-dont-need-a-vector-database)
+
+“Canonical order” in practice:
+
+- Define a **primary canonical sort** for each table, usually:
+  - `created_at` ascending for history.
+  - Or `importance_score DESC, created_at DESC` for memories.
+- For retrieval, you:
+  - Filter by `category`/`type`
+  - Do vector similarity
+  - Then apply canonical ordering as a tie‑breaker.
+
+***
+
+## 2. Self‑learning with Postgres + vectors
+
+You still cannot “learn” by changing Gemma’s weights on CPU, so the self‑learning works through **data + retrieval**: [yugabyte](https://www.yugabyte.com/key-concepts/using-postgresql-as-a-vector-database/)
+
+1. **Automatic categorization**
+   - When saving a message or memory:
+     - Ask the model to assign:
+       - Category (e.g., `ml`, `devops`, `design`, `bug_fix`)
+       - Importance (1–5)
+     - Store in Postgres.
+   - Later retrieval can be category‑aware.
+
+2. **Reflection jobs**
+   - A scheduled job (cron or manual command) does:
+     - Pull recent messages from `messages`.
+     - Ask Gemma for:
+       - Key lessons
+       - New user preferences
+       - Reusable patterns.
+     - Insert the result into `memories` with embeddings and categories.
+
+3. **Profile refinement**
+   - `users` table row gets updated when the agent detects consistent patterns:
+     - OS, editor preference, favorite frameworks, etc.
+   - The agent loads this profile on startup, giving you personalized behavior.
+
+4. **Project‑level context**
+   - For a project, create a tag or project ID.
+   - Index:
+     - Code summaries
+     - README
+     - Key design docs in `documents`.
+   - The agent can then retrieve **project‑specific context** via vector similarity + category filters.
+
+***
+
+## 3. Web access with verification and “trusted only” mode
+
+### Web access
+
+- Use a web search API (e.g., Tavily, SerpAPI, etc.) as a tool in the agent. [dev](https://dev.to/sreeni5018/building-a-web-search-workflow-using-microsoft-agent-framework-without-any-ai-services-part-ii-50l3)
+- Store web results in `web_sources` with:
+  - `raw_snippet`, `normalized_summary`, `trust_score`.
+
+### Verification pipeline
+
+To “only grab verified information from the web” as much as possible:
+
+1. **Multi‑source requirement**
+   - For non‑trivial facts, require at least **N distinct domains** (e.g., 2–3) for the same claim. [vouched](https://www.vouched.id/learn/blog/agentic-workflow-verification-guide)
+   - If results disagree:
+     - Mark topic as “uncertain”
+     - Tell you explicitly and avoid strong statements.
+
+2. **Trust scoring**
+   - Score sources based on:
+     - Domain reputation (docs, official vendor, well‑known sites)
+     - Consistency with existing stored knowledge in `documents` / `memories`.
+   - Store `trust_score` and update it over time.
+
+3. **Normalization step**
+   - Ask the model to:
+     - Compare sources
+     - Produce a **consolidated summary** with explicit mention of uncertainty.
+   - Save that into `web_sources` and `documents` with a `source='web_verified'`.
+
+4. **Runtime verification**
+   - For risky operations (e.g., system commands, code changes):
+     - Use a “checker” step:
+       - Ask the model in a separate call (or with a different system prompt) to review the plan.
+       - Or apply fixed rules (e.g., no `rm -rf`, no network to unknown hosts).
+   - This mirrors “agentic workflow verification” patterns. [vouched](https://www.vouched.id/learn/blog/agentic-workflow-verification-guide)
+
+5. **Offline reconciliation**
+   - Occasionally run a job that:
+     - Re‑checks older high‑impact web facts
+     - Updates or flags them as outdated. [vouched](https://www.vouched.id/learn/blog/agentic-workflow-verification-guide)
+
+***
+
+## 4. Self‑healing with a Postgres‑backed agent
+
+Self‑healing is a control loop around the agent using Postgres as the log and brain: [semaphore](https://semaphore.io/blog/self-healing-ci)
+
+1. **Structured logging**
+   - Log every tool call, error, and retry into a table like `agent_events`:
+     - `event_type`, `context_id`, `payload`, `status`.
+   - This gives a timeline and makes it easy to analyze failure patterns.
+
+2. **Automatic retries + schema repair**
+   - When a tool call fails or returns invalid JSON:
+     - Create an `agent_events` record.
+     - Ask the model to fix just that call, with the error details.
+     - Retry up to N times with backoff.
+   - If still failing:
+     - Mark the tool as “degraded” in a state table.
+
+3. **Circuit breakers and degraded modes**
+   - For each tool:
+     - Track `success_rate` and `recent_failures` in Postgres.
+   - If failures exceed a threshold:
+     - Automatically:
+       - Disable or restrict that tool.
+       - Switch to a safe fallback (e.g., answer without web access, or only read‑only mode for shell).
+   - Record this change and notify you.
+
+4. **Health checks and self‑diagnosis**
+   - A background job monitors:
+     - Latency
+     - Failure counts
+     - Web verification failures.
+   - If anomalies detected:
+     - Agent runs a self‑diagnosis conversation with itself:
+       - “Here is my error log, what likely broke?”
+     - Suggests or applies configuration fixes (e.g., disable a broken API key, reduce context size). [union](https://www.union.ai/blog-post/how-to-build-self-healing-agents)
+
+5. **Self‑healing CI style for code**
+   - When code the agent wrote fails tests:
+     - Collect logs
+     - Ask the agent to:
+       - Fix the code
+       - Re‑run tests
+       - Repeat within limits. [semaphore](https://semaphore.io/blog/self-healing-ci)
+   - Optionally commit to a branch automatically (Git) when tests pass.
+
+***
+
+## 5. Updated roadmap with the DB + web requirements
+
+### Phase 1 – Core stack + DB
+
+- Set up:
+  - Postgres + `pgvector`.
+  - Tables: `users`, `sessions`, `messages`, `documents`, `memories`, `web_sources`, `agent_events`.
+- Basic agent:
+  - CLI chat with persona.
+  - Gemma 4 small model, CPU + quantization. [gemma4-ai](https://gemma4-ai.com/blog/gemma4-hardware)
+  - Store all conversations in Postgres with categories.
+
+### Phase 2 – Vector search and retrieval
+
+- Add an embedding model and `embedding` columns (pgvector).
+- Implement:
+  - RAG for:
+    - `memories`
+    - `documents`
+    - Past `messages`.
+- Add basic “self‑learning”:
+  - Reflection job that writes `memories`.
+
+### Phase 3 – Web access + verification
+
+- Integrate web search tool.
+- Implement:
+  - Multi‑source collection.
+  - Trust scoring + verification.
+  - Consolidated summaries stored as `web_verified` documents and `web_sources` rows. [cloud.google](https://cloud.google.com/discover/what-is-pgvector)
+- Enforce:
+  - “Verified only” mode by default for external facts.
+
+### Phase 4 – Self‑healing logic
+
+- Implement:
+  - Structured logging in `agent_events`.
+  - Retry + schema repair + circuit breakers.
+  - Health checks and degraded modes. [union](https://www.union.ai/blog-post/how-to-build-self-healing-agents)
+- Add “self‑diagnosis” routines that inspect the logs and propose fixes.
+
+### Phase 5 – DevOps / coding workflows
+
+- Tools:
+  - Code runner
+  - Git integration
+  - Allow‑listed shell commands.
+- Store:
+  - Build logs and test run results as `documents` and `agent_events`.
+- Use the agent to:
+  - Triage failures
+  - Suggest fixes
+  - Optionally create branches / patches.
+
+***
+
+Given all that, next helpful step is to pin down the **tech stack details** so implementation is straightforward (e.g., Python framework, which web search API, which embedding model, and your laptop specs).  
+
+What languages and frameworks are you most comfortable with for the implementation (e.g., Python + FastAPI + SQLAlchemy), and do you already have a local Postgres instance running or should the plan assume installing it from scratch?
