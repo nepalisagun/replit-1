@@ -247,6 +247,7 @@ export default function ChatPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 300);
@@ -382,6 +383,17 @@ export default function ChatPage() {
   }, [typedConvos, activeId]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, streamBuffer]);
+
+  useEffect(() => {
+    const el = bottomRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowScrollBtn(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [activeId]);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -835,7 +847,16 @@ export default function ChatPage() {
               </div>
             </ScrollArea>
 
-            <div className="p-4 border-t border-border bg-card">
+            <div className="p-4 border-t border-border bg-card relative">
+              {showScrollBtn && (
+                <button
+                  onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
+                  className="absolute -top-11 right-6 z-10 w-8 h-8 rounded-full bg-background border border-border shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                  title="Jump to bottom"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              )}
               <div className="max-w-3xl mx-auto relative">
                 <textarea
                   ref={textareaRef}
