@@ -475,6 +475,19 @@ paths:
         "204":
           description: Deleted
 
+  /rag/backfill:
+    post:
+      operationId: ragBackfill
+      tags: [search]
+      summary: Backfill embeddings for all existing records missing vectors (SSE stream)
+      responses:
+        "200":
+          description: SSE stream of backfill progress events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
   /rag/search:
     post:
       operationId: ragSearch

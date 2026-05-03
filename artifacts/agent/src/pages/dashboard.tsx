@@ -1,10 +1,127 @@
-import { 
-  useGetDashboardStats, 
-  useGetToolHealth, 
-  useGetRecentActivity 
+import { useState } from "react";
+import {
+  useGetDashboardStats,
+  useGetToolHealth,
+  useGetRecentActivity
 } from "@workspace/api-client-react";
-import { MessageSquare, BrainCircuit, Database, AlertTriangle, Activity, Loader2, CheckCircle } from "lucide-react";
+import { MessageSquare, BrainCircuit, Database, AlertTriangle, Activity, Loader2, CheckCircle, Cpu, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+interface BackfillProgress {
+  phase: "start" | "progress" | "done" | "error";
+  done?: number;
+  total?: number;
+  source?: string;
+  message?: string;
+}
+
+function BackfillCard() {
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<BackfillProgress | null>(null);
+
+  const handleBackfill = async () => {
+    setRunning(true);
+    setProgress(null);
+
+    try {
+      const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const response = await fetch(`${BASE}/api/rag/backfill`, { method: "POST" });
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const evt = JSON.parse(line.slice(6)) as BackfillProgress;
+              setProgress(evt);
+            } catch { /* skip */ }
+          }
+        }
+      }
+    } catch {
+      setProgress({ phase: "error", message: "Connection failed" });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const pct = progress?.total && progress.total > 0
+    ? Math.round(((progress.done ?? 0) / progress.total) * 100)
+    : 0;
+
+  return (
+    <Card className="bg-card border-border shadow-none">
+      <CardHeader className="pb-3 border-b border-border">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <Cpu className="w-4 h-4 text-primary" />
+          Embedding Backfill
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-4 space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Generate missing vector embeddings for all memories, documents, and web sources so they are
+          fully searchable via semantic RAG retrieval.
+        </p>
+
+        {progress && progress.phase !== "start" && (
+          <div className="space-y-2">
+            {progress.phase === "progress" || progress.phase === "done" ? (
+              <>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{progress.phase === "done" ? "Complete" : `Embedding ${progress.source}…`}</span>
+                  <span>{progress.done ?? 0} / {progress.total ?? 0}</span>
+                </div>
+                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${progress.phase === "done" ? "bg-emerald-500" : "bg-primary"}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                {progress.phase === "done" && (
+                  <p className="text-xs text-emerald-400 flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    {progress.total} items embedded successfully
+                  </p>
+                )}
+              </>
+            ) : progress.phase === "error" ? (
+              <p className="text-xs text-destructive">{progress.message ?? "Backfill failed"}</p>
+            ) : null}
+          </div>
+        )}
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleBackfill}
+          disabled={running}
+          className="w-full"
+          data-testid="button-backfill"
+        >
+          {running ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+              Running backfill…
+            </>
+          ) : (
+            <>
+              <RefreshCw className="w-3.5 h-3.5 mr-2" />
+              Run Embedding Backfill
+            </>
+          )}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function DashboardPage() {
   const { data: stats, isLoading: loadingStats } = useGetDashboardStats();
@@ -78,7 +195,7 @@ export default function DashboardPage() {
                   <div className="flex justify-between items-start">
                     <span className="font-medium text-sm">{act.type}</span>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(act.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(act.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">{act.description}</p>
@@ -88,20 +205,22 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        <BackfillCard />
       </div>
     </div>
   );
 }
 
-function StatCard({ title, value, icon: Icon, isError = false }: any) {
+function StatCard({ title, value, icon: Icon, isError = false }: { title: string; value?: number; icon: React.ElementType; isError?: boolean }) {
   return (
-    <div className={`p-4 rounded-xl border ${isError ? 'border-destructive bg-destructive/5' : 'border-border bg-card'}`}>
+    <div className={`p-4 rounded-xl border ${isError ? "border-destructive bg-destructive/5" : "border-border bg-card"}`}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-muted-foreground">{title}</span>
-        <Icon className={`w-4 h-4 ${isError ? 'text-destructive' : 'text-primary'}`} />
+        <Icon className={`w-4 h-4 ${isError ? "text-destructive" : "text-primary"}`} />
       </div>
-      <div className={`text-2xl font-bold ${isError ? 'text-destructive' : 'text-foreground'}`}>
-        {value ?? '-'}
+      <div className={`text-2xl font-bold ${isError ? "text-destructive" : "text-foreground"}`}>
+        {value ?? "-"}
       </div>
     </div>
   );

@@ -2017,6 +2017,85 @@ export const useDeleteWebSource = <
 };
 
 /**
+ * @summary Backfill embeddings for all existing records missing vectors (SSE stream)
+ */
+export const getRagBackfillUrl = () => {
+  return `/api/rag/backfill`;
+};
+
+export const ragBackfill = async (options?: RequestInit): Promise<string> => {
+  return customFetch<string>(getRagBackfillUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRagBackfillMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ragBackfill>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof ragBackfill>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["ragBackfill"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof ragBackfill>>,
+    void
+  > = () => {
+    return ragBackfill(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RagBackfillMutationResult = NonNullable<
+  Awaited<ReturnType<typeof ragBackfill>>
+>;
+
+export type RagBackfillMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Backfill embeddings for all existing records missing vectors (SSE stream)
+ */
+export const useRagBackfill = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ragBackfill>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof ragBackfill>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRagBackfillMutationOptions(options));
+};
+
+/**
  * @summary Semantic RAG search across memories, documents, and web sources
  */
 export const getRagSearchUrl = () => {
